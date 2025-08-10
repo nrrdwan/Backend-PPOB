@@ -14,8 +14,12 @@ use Backpack\CRUD\app\Library\CrudPanel\CrudPanelFacade as CRUD;
 class UserCrudController extends CrudController
 {
     use \Backpack\CRUD\app\Http\Controllers\Operations\ListOperation;
-    use \Backpack\CRUD\app\Http\Controllers\Operations\CreateOperation;
-    use \Backpack\CRUD\app\Http\Controllers\Operations\UpdateOperation;
+    use \Backpack\CRUD\app\Http\Controllers\Operations\CreateOperation {
+        store as traitStore;
+    }
+    use \Backpack\CRUD\app\Http\Controllers\Operations\UpdateOperation {
+        update as traitUpdate;
+    }
     use \Backpack\CRUD\app\Http\Controllers\Operations\DeleteOperation;
     use \Backpack\CRUD\app\Http\Controllers\Operations\ShowOperation;
 
@@ -88,6 +92,17 @@ class UserCrudController extends CrudController
     }
 
     /**
+     * Handle the store request before saving to database.
+     * Password akan di-hash otomatis oleh model cast.
+     */
+    public function store()
+    {
+        // Continue with normal store process
+        // Password akan di-hash otomatis oleh model karena ada 'password' => 'hashed' di cast
+        return $this->traitStore();
+    }
+
+    /**
      * Define what happens when the Update operation is loaded.
      * 
      * @see https://backpackforlaravel.com/docs/crud-operation-update
@@ -105,5 +120,23 @@ class UserCrudController extends CrudController
             ->options($roles)
             ->validationRules('required|in:' . implode(',', array_keys($roles)));
         CRUD::field('is_active')->label('Status Aktif')->type('boolean');
+    }
+
+    /**
+     * Handle the update request before saving to database.
+     * Remove password field if it's empty to prevent overwriting existing password.
+     */
+    public function update()
+    {
+        $request = CRUD::getRequest();
+        
+        // If password field is empty, remove it from request to keep current password
+        if (empty($request->input('password'))) {
+            $request->request->remove('password');
+        }
+        // Jika password diisi, biarkan model cast yang handle hashing
+        
+        // Continue with normal update process using trait method
+        return $this->traitUpdate();
     }
 }

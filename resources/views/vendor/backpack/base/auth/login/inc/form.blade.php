@@ -1,0 +1,139 @@
+@section('after_scripts')
+<script type="module">
+    let input = document.querySelector('.password-visibility-toggler input');
+    let buttons = document.querySelectorAll('.password-visibility-toggler a');
+
+    buttons.forEach(button => {
+        button.addEventListener('click', () => {
+            buttons.forEach(b => b.classList.toggle('d-none'));
+            input.type = input.type === 'password' ? 'text' : 'password';
+            input.focus();
+        });
+    });
+</script>
+@endsection
+
+<h2 class="h2 text-center my-4">
+    <i class="fas fa-shield-alt text-primary me-2"></i>
+    PPOB Admin Panel
+</h2>
+
+{{-- Administrator Only Notice --}}
+<div class="alert alert-info mb-4">
+    <div class="d-flex">
+        <div>
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon alert-icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                <circle cx="12" cy="12" r="9"></circle>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                <polyline points="11,12 12,12 12,16 13,16"></polyline>
+            </svg>
+        </div>
+        <div>
+            <h4 class="alert-title">Penting!</h4>
+            <div class="text-muted">
+                Hanya pengguna dengan role <strong>Admin</strong> yang dapat mengakses panel admin ini.
+                <br>Role lain (Agen PPOB, User Biasa) tidak diizinkan masuk.
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- Show session error messages from multiple sources --}}
+@if(session('error') || session('login_error') || $errors->has('login_error') || request()->cookie('login_error'))
+<div class="alert alert-danger alert-dismissible" role="alert">
+    <div class="d-flex">
+        <div>
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon alert-icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                <circle cx="12" cy="12" r="9"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+        </div>
+        <div>
+            <h4 class="alert-title">Akses Ditolak!</h4>
+            <div class="text-muted">
+                @if(session('error'))
+                    {{ session('error') }}
+                @elseif(session('login_error'))
+                    {{ session('login_error') }}
+                @elseif($errors->has('login_error'))
+                    {{ $errors->first('login_error') }}
+                @elseif(request()->cookie('login_error'))
+                    {{ request()->cookie('login_error') }}
+                @endif
+            </div>
+        </div>
+    </div>
+    <a class="btn-close" data-bs-dismiss="alert" aria-label="close"></a>
+</div>
+@endif
+
+<form method="POST" action="{{ route('backpack.auth.login') }}" autocomplete="off" novalidate="">
+    @csrf
+    <div class="mb-3">
+        <label class="form-label" for="{{ $username }}">{{ trans('backpack::base.'.strtolower(config('backpack.base.authentication_column_name'))) }}</label>
+        <input autofocus tabindex="1" type="text" name="{{ $username }}" value="{{ old($username) }}" id="{{ $username }}" class="form-control {{ $errors->has($username) ? 'is-invalid' : '' }}" placeholder="admin@ppob.com" autocomplete="email">
+        @if ($errors->has($username))
+            <div class="invalid-feedback">{{ $errors->first($username) }}</div>
+        @endif
+    </div>
+    <div class="mb-2">
+        <label class="form-label" for="password">
+            {{ trans('backpack::base.password') }}
+        </label>
+        <div class="input-group input-group-flat password-visibility-toggler">
+            <input tabindex="2" type="password" name="password" id="password" class="form-control {{ $errors->has('password') ? 'is-invalid' : '' }}" value="" placeholder="Password Administrator" autocomplete="current-password">
+            @if(backpack_theme_config('options.showPasswordVisibilityToggler'))
+            <span class="input-group-text p-0 px-2">
+                <a href="#" data-input-type="text" class="link-secondary p-2" data-bs-toggle="tooltip" aria-label="{{ trans('backpack.theme-tabler::theme-tabler.password-show') }}" data-bs-original-title="{{ trans('backpack.theme-tabler::theme-tabler.password-show') }}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-eye" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"></path><path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6"></path></svg>
+                </a>
+                <a href="#" data-input-type="password" class="link-secondary p-2 d-none" data-bs-toggle="tooltip" aria-label="{{ trans('backpack.theme-tabler::theme-tabler.password-hide') }}" data-bs-original-title="{{ trans('backpack.theme-tabler::theme-tabler.password-hide') }}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-eye-off" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.585 10.587a2 2 0 0 0 2.829 2.828" /><path d="M16.681 16.673a8.717 8.717 0 0 1 -4.681 1.327c-3.6 0 -6.6 -2 -9 -6c1.272 -2.12 2.712 -3.678 4.32 -4.674m2.86 -1.146a9.055 9.055 0 0 1 1.82 -.18c3.6 0 6.6 2 9 6c-.666 1.11 -1.379 2.067 -2.138 2.87" /><path d="M3 3l18 18" /></svg>
+                </a>
+            </span>
+            @endif
+        </div>
+        @if ($errors->has('password'))
+            <div class="invalid-feedback">{{ $errors->first('password') }}</div>
+        @endif
+    </div>
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <label class="form-check mb-0">
+            <input name="remember" tabindex="3" type="checkbox" class="form-check-input">
+            <span class="form-check-label">{{ trans('backpack::base.remember_me') }}</span>
+        </label>
+        @if (backpack_users_have_email() && backpack_email_column() && config('backpack.base.setup_password_recovery_routes', true))
+        <div class="form-label-description">
+            <a tabindex="4" href="{{ route('backpack.auth.password.reset') }}">{{ trans('backpack::base.forgot_your_password') }}</a>
+        </div>
+        @endif
+    </div>
+    
+    {{-- Administrator Credential Hint --}}
+    <div class="alert alert-light mb-3">
+        <small class="text-muted">
+            <strong>Demo Login:</strong><br>
+            Email: admin@ppob.com<br>
+            Password: admin123
+        </small>
+    </div>
+    
+    <div class="form-footer">
+        <button tabindex="4" type="submit" class="btn btn-primary w-100">
+            <i class="fas fa-sign-in-alt me-2"></i>
+            {{ trans('backpack::base.login') }}
+        </button>
+    </div>
+</form>
+
+{{-- Register link only for admins --}}
+@if (config('backpack.base.setup_auth_routes'))
+    @if (config('backpack.base.setup_registration_routes'))
+        <div class="text-center text-muted mt-3">
+            Belum punya akun Admin? <a href="{{ route('backpack.auth.register') }}" tabindex="5">{{ trans('backpack::base.register') }}</a>
+        </div>
+    @endif
+@endif

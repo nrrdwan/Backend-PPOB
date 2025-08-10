@@ -3,6 +3,19 @@
 use Illuminate\Support\Facades\Route;
 
 // --------------------------
+// Custom Auth Routes
+// --------------------------
+Route::group([
+    'prefix' => config('backpack.base.route_prefix', 'admin'),
+    'middleware' => 'web',
+    'namespace' => 'App\Http\Controllers\Auth',
+], function () {
+    // Override default login route with custom controller
+    Route::get('login', 'LoginController@showLoginForm')->name('backpack.auth.login');
+    Route::post('login', 'LoginController@login');
+});
+
+// --------------------------
 // Custom Backpack Routes
 // --------------------------
 // This route file is loaded automatically by Backpack\CRUD.
