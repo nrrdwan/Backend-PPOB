@@ -147,9 +147,6 @@ $widgets['before_content'][] = [
         <div class="card">
             <div class="card-header">
                 <h4>Statistik Transaksi 6 Bulan Terakhir</h4>
-                <div class="card-header-action">
-                    <div class="badge badge-success">{{ number_format($success_transactions) }} Berhasil</div>
-                </div>
             </div>
             <div class="card-body">
                 <canvas id="transactionChart" height="120"></canvas>
