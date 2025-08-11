@@ -71,42 +71,12 @@
             <i class="fas fa-exclamation-triangle icon-warning"></i>
             <h3 class="text-danger mb-3">Akses Ditolak!</h3>
             
-            @if(isset($userRole))
-            <div class="role-info">
-                <strong>Role Anda:</strong> {{ $userRole }}<br>
-                <strong>Status:</strong> <span class="text-danger">Tidak Diizinkan</span>
-            </div>
-            @endif
-            
-            <p class="lead mb-4">
-                Hanya pengguna dengan role <strong class="text-primary">Admin</strong> 
-                yang dapat mengakses panel admin ini.
-            </p>
-            
-            <div class="alert alert-info">
-                <i class="fas fa-info-circle me-2"></i>
-                <strong>Informasi:</strong><br>
-                Role yang diizinkan: <strong>Admin</strong><br>
-                Role yang tidak diizinkan: Agen PPOB, User Biasa, dan lainnya
-            </div>
-            
             <div class="d-grid gap-2">
                 <a href="{{ route('backpack.auth.login') }}" class="btn btn-primary">
                     <i class="fas fa-arrow-left me-2"></i>
                     Kembali ke Login
                 </a>
-                <a href="/" class="btn btn-outline-secondary">
-                    <i class="fas fa-home me-2"></i>
-                    Ke Halaman Utama
-                </a>
             </div>
-            
-            <hr class="my-4">
-            
-            <small class="text-muted">
-                <i class="fas fa-question-circle me-1"></i>
-                Butuh akses Admin? Hubungi administrator sistem.
-            </small>
         </div>
     </div>
 

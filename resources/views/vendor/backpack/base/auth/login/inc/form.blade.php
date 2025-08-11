@@ -29,13 +29,6 @@
                 <polyline points="11,12 12,12 12,16 13,16"></polyline>
             </svg>
         </div>
-        <div>
-            <h4 class="alert-title">Penting!</h4>
-            <div class="text-muted">
-                Hanya pengguna dengan role <strong>Admin</strong> yang dapat mengakses panel admin ini.
-                <br>Role lain (Agen PPOB, User Biasa) tidak diizinkan masuk.
-            </div>
-        </div>
     </div>
 </div>
 
@@ -50,20 +43,6 @@
                 <line x1="12" y1="8" x2="12" y2="12"></line>
                 <line x1="12" y1="16" x2="12.01" y2="16"></line>
             </svg>
-        </div>
-        <div>
-            <h4 class="alert-title">Akses Ditolak!</h4>
-            <div class="text-muted">
-                @if(session('error'))
-                    {{ session('error') }}
-                @elseif(session('login_error'))
-                    {{ session('login_error') }}
-                @elseif($errors->has('login_error'))
-                    {{ $errors->first('login_error') }}
-                @elseif(request()->cookie('login_error'))
-                    {{ request()->cookie('login_error') }}
-                @endif
-            </div>
         </div>
     </div>
     <a class="btn-close" data-bs-dismiss="alert" aria-label="close"></a>
@@ -111,16 +90,6 @@
         </div>
         @endif
     </div>
-    
-    {{-- Administrator Credential Hint --}}
-    <div class="alert alert-light mb-3">
-        <small class="text-muted">
-            <strong>Demo Login:</strong><br>
-            Email: admin@ppob.com<br>
-            Password: admin123
-        </small>
-    </div>
-    
     <div class="form-footer">
         <button tabindex="4" type="submit" class="btn btn-primary w-100">
             <i class="fas fa-sign-in-alt me-2"></i>
@@ -128,12 +97,3 @@
         </button>
     </div>
 </form>
-
-{{-- Register link only for admins --}}
-@if (config('backpack.base.setup_auth_routes'))
-    @if (config('backpack.base.setup_registration_routes'))
-        <div class="text-center text-muted mt-3">
-            Belum punya akun Admin? <a href="{{ route('backpack.auth.register') }}" tabindex="5">{{ trans('backpack::base.register') }}</a>
-        </div>
-    @endif
-@endif
