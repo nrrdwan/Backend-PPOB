@@ -40,7 +40,7 @@ Route::group([
     // CRUD routes
     Route::crud('user', 'UserCrudController');
     Route::crud('product', 'ProductCrudController');
-    // Route::crud('transaction', 'TransactionCrudController'); // Temporarily disabled
+    Route::crud('transaction', 'TransactionCrudController');
     Route::crud('role', 'RoleCrudController');
     Route::crud('permission', 'PermissionCrudController');
 }); // this should be the absolute last line of this file
