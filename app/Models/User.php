@@ -24,6 +24,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'balance',
         'role',
         'is_active',
         'last_login_at',
@@ -51,6 +52,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'last_login_at' => 'datetime',
             'is_active' => 'boolean',
+            'balance' => 'decimal:2',
         ];
     }
 
@@ -157,5 +159,32 @@ class User extends Authenticatable
 
         // Check if user has roles with admin access permission
         return $this->hasPermission('access-admin-panel');
+    }
+
+    // Wallet/Balance methods
+    public function hasBalance($amount)
+    {
+        return $this->balance >= $amount;
+    }
+
+    public function addBalance($amount)
+    {
+        $this->increment('balance', $amount);
+        return $this->fresh();
+    }
+
+    public function deductBalance($amount)
+    {
+        if (!$this->hasBalance($amount)) {
+            return false;
+        }
+        
+        $this->decrement('balance', $amount);
+        return $this->fresh();
+    }
+
+    public function getFormattedBalanceAttribute()
+    {
+        return number_format($this->balance, 0, ',', '.');
     }
 }

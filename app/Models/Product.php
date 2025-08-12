@@ -48,4 +48,40 @@ class Product extends Model
     {
         return $query->where('type', $type);
     }
+
+    public function scopeByProvider($query, $provider)
+    {
+        return $query->where('provider', $provider);
+    }
+
+    // Methods untuk business logic
+    public function isAvailable()
+    {
+        if (!$this->is_active) {
+            return false;
+        }
+
+        if (!$this->is_unlimited && $this->stock <= 0) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public function reduceStock($quantity = 1)
+    {
+        if (!$this->is_unlimited) {
+            $this->decrement('stock', $quantity);
+        }
+    }
+
+    public function getFormattedPriceAttribute()
+    {
+        return number_format($this->price, 0, ',', '.');
+    }
+
+    public function getFormattedSellingPriceAttribute()
+    {
+        return number_format($this->selling_price, 0, ',', '.');
+    }
 }

@@ -81,7 +81,6 @@ class AuthController extends Controller
                     'token_type' => 'Bearer'
                 ]
             ], 201);
-
         } catch (\Exception $e) {
             Log::error('Registration error', [
                 'error' => $e->getMessage(),
@@ -146,7 +145,10 @@ class AuthController extends Controller
             }
 
             // Update last login
+            /** @var \App\Models\User $user */
+            $user = Auth::user();
             $user->update(['last_login_at' => now()]);
+
 
             // Buat token dengan device name
             $deviceName = $request->device_name ?? 'mobile-app';
@@ -180,7 +182,6 @@ class AuthController extends Controller
                     'token_type' => 'Bearer'
                 ]
             ], 200);
-
         } catch (\Exception $e) {
             Log::error('Login error', [
                 'error' => $e->getMessage(),
@@ -221,7 +222,6 @@ class AuthController extends Controller
                 'success' => true,
                 'message' => 'Logout successful'
             ], 200);
-
         } catch (\Exception $e) {
             Log::error('Logout error', [
                 'error' => $e->getMessage(),
@@ -261,7 +261,6 @@ class AuthController extends Controller
                 'success' => true,
                 'message' => 'Logged out from all devices successfully'
             ], 200);
-
         } catch (\Exception $e) {
             Log::error('Logout all error', [
                 'error' => $e->getMessage(),
@@ -306,7 +305,6 @@ class AuthController extends Controller
                     ]
                 ]
             ], 200);
-
         } catch (\Exception $e) {
             Log::error('Profile fetch error', [
                 'error' => $e->getMessage(),

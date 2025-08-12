@@ -46,6 +46,18 @@ class UserCrudController extends CrudController
         CRUD::column('name')->label('Nama');
         CRUD::column('email')->label('Email');
         
+        // Add balance column with custom formatting
+        CRUD::addColumn([
+            'name' => 'balance',
+            'label' => 'Saldo',
+            'type' => 'closure',
+            'function' => function($entry) {
+                return 'Rp ' . number_format($entry->balance, 0, ',', '.');
+            },
+            'orderable' => true,
+            'searchLogic' => false
+        ]);
+        
         // Get roles from database dynamically
         $roles = \App\Models\Role::where('is_active', true)->pluck('name', 'name')->toArray();
         
@@ -84,6 +96,23 @@ class UserCrudController extends CrudController
         CRUD::field('name')->label('Nama')->type('text')->validationRules('required|min:2');
         CRUD::field('email')->label('Email')->type('email')->validationRules('required|email|unique:users,email');
         CRUD::field('password')->label('Password')->type('password')->validationRules('required|min:8');
+        
+        // Add balance field for admin to set initial balance
+        CRUD::addField([
+            'name' => 'balance',
+            'label' => 'Saldo Awal',
+            'type' => 'number',
+            'attributes' => [
+                'step' => '1000',
+                'min' => '0',
+                'max' => '100000000'
+            ],
+            'default' => 0,
+            'prefix' => 'Rp',
+            'suffix' => '.00',
+            'hint' => 'Saldo awal user dalam rupiah'
+        ]);
+        
         CRUD::field('role')->label('Role')->type('select_from_array')
             ->options($roles)
             ->default($defaultRole)
@@ -116,6 +145,22 @@ class UserCrudController extends CrudController
         CRUD::field('name')->label('Nama')->type('text')->validationRules('required|min:2');
         CRUD::field('email')->label('Email')->type('email')->validationRules('required|email|unique:users,email,' . CRUD::getCurrentEntryId());
         CRUD::field('password')->label('Password (kosongkan jika tidak ingin mengubah)')->type('password')->validationRules('nullable|min:8');
+        
+        // Add balance field for admin to adjust user balance
+        CRUD::addField([
+            'name' => 'balance',
+            'label' => 'Saldo',
+            'type' => 'number',
+            'attributes' => [
+                'step' => '1000',
+                'min' => '0',
+                'max' => '100000000'
+            ],
+            'prefix' => 'Rp',
+            'suffix' => '.00',
+            'hint' => 'Saldo user dalam rupiah (admin dapat menyesuaikan)'
+        ]);
+        
         CRUD::field('role')->label('Role')->type('select_from_array')
             ->options($roles)
             ->validationRules('required|in:' . implode(',', array_keys($roles)));

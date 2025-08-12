@@ -20,18 +20,29 @@ class AdminController extends Controller
         // Statistik untuk dashboard PPOB
         $data['total_users'] = User::count();
         $data['active_users'] = User::where('created_at', '>=', now()->subDays(30))->count();
-        $data['today_transactions'] = 0; // Transaction::whereDate('created_at', today())->count();
-        $data['this_month_revenue'] = 0; // Transaction::whereMonth('created_at', now()->month)->where('status', 'success')->sum('amount');
+        $data['today_transactions'] = Transaction::whereDate('created_at', today())->count();
+        $data['this_month_revenue'] = Transaction::whereMonth('created_at', now()->month)
+                                               ->where('status', 'success')
+                                               ->sum('total_amount');
+        
+        // Wallet stats
+        $data['total_balance'] = User::where('role', '!=', 'Administrator')->sum('balance');
+        $data['total_topup'] = Transaction::where('type', 'topup')
+                                        ->where('status', 'success')
+                                        ->sum('total_amount');
+        $data['total_spending'] = Transaction::whereIn('type', ['pulsa', 'pln', 'pdam', 'game', 'emoney', 'other'])
+                                           ->where('status', 'success')
+                                           ->sum('total_amount');
         
         // Product stats
         $data['active_products'] = Product::where('is_active', true)->count();
-        $data['total_transactions'] = 0; // Transaction::count();
-        $data['total_revenue'] = 0; // Transaction::where('status', 'success')->sum('amount');
-        $data['pending_transactions'] = 0; // Transaction::where('status', 'pending')->count();
-        $data['success_transactions'] = 0; // Transaction::where('status', 'success')->count();
+        $data['total_transactions'] = Transaction::count();
+        $data['total_revenue'] = Transaction::where('status', 'success')->sum('total_amount');
+        $data['pending_transactions'] = Transaction::where('status', 'pending')->count();
+        $data['success_transactions'] = Transaction::where('status', 'success')->count();
         
         // Recent transactions
-        $data['recent_transactions'] = collect(); // Transaction::with('user', 'product')->latest()->limit(5)->get();
+        $data['recent_transactions'] = Transaction::with('user', 'product')->latest()->limit(5)->get();
         
         // Product stats by type
         $data['product_stats'] = [

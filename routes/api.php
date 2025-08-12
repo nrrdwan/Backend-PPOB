@@ -3,6 +3,8 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\PPOBController;
+use App\Http\Controllers\Api\WalletController;
 
 /*
 |--------------------------------------------------------------------------
@@ -39,6 +41,26 @@ Route::middleware('auth:sanctum')->group(function () {
                 'user' => $request->user()
             ]
         ]);
+    });
+
+    // PPOB routes
+    Route::prefix('ppob')->group(function () {
+        // Product management
+        Route::get('categories', [PPOBController::class, 'getCategories']);
+        Route::get('products', [PPOBController::class, 'getProducts']);
+        Route::get('products/{productId}', [PPOBController::class, 'getProductDetail']);
+        
+        // Transaction management
+        Route::post('purchase', [PPOBController::class, 'purchase']);
+        Route::get('transaction/{transactionId}', [PPOBController::class, 'getTransactionStatus']);
+        Route::get('transactions', [PPOBController::class, 'getTransactionHistory']);
+    });
+
+    // Wallet routes
+    Route::prefix('wallet')->group(function () {
+        Route::get('balance', [WalletController::class, 'getBalance']);
+        Route::post('topup', [WalletController::class, 'topUp']);
+        Route::get('history', [WalletController::class, 'getBalanceHistory']);
     });
 });
 
