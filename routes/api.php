@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\PPOBController;
 use App\Http\Controllers\Api\WalletController;
+use App\Http\Controllers\Api\MidtransController;
 
 /*
 |--------------------------------------------------------------------------
@@ -62,6 +63,27 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('topup', [WalletController::class, 'topUp']);
         Route::get('history', [WalletController::class, 'getBalanceHistory']);
     });
+
+    // Midtrans routes
+    Route::prefix('midtrans')->group(function () {
+        Route::post('create-token', [MidtransController::class, 'createSnapToken']);
+        Route::get('status/{transactionId}', [MidtransController::class, 'getStatus']);
+        Route::post('generate-signature', [MidtransController::class, 'generateSignature']);
+    });
+});
+
+// Midtrans Notification (tidak perlu authentication)
+Route::post('midtrans/notification', [MidtransController::class, 'notification']);
+Route::post('midtrans/debug-notification', [MidtransController::class, 'debugNotification']);
+Route::post('midtrans/test-generate-signature', [MidtransController::class, 'generateSignature']);
+Route::get('midtrans/finish', function () {
+    return view('midtrans.finish');
+});
+Route::get('midtrans/error', function () {
+    return view('midtrans.error');
+});
+Route::get('midtrans/pending', function () {
+    return view('midtrans.pending');
 });
 
 // Health check route

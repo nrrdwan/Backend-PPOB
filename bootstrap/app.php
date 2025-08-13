@@ -12,7 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Exclude CSRF verification for Midtrans notification
+        $middleware->validateCsrfTokens(except: [
+            'api/midtrans/notification'
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
