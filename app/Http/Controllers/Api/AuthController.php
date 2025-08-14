@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\PasswordOtp;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Carbon\Carbon;
 
 class AuthController extends Controller
 {
@@ -314,6 +317,170 @@ class AuthController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch profile. Please try again.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Send OTP to email for password reset
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function forgotPassword(Request $request)
+    {
+        try {
+            // Validasi input
+            $validator = Validator::make($request->all(), [
+                'email' => 'required|email|exists:users,email'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation error',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // Generate 4 digit OTP
+            $otp = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+            
+            // Set expiration time to 1 minute from now
+            $expiresAt = Carbon::now()->addMinute();
+
+            // Delete any existing OTP for this email
+            PasswordOtp::where('email', $request->email)->delete();
+
+            // Create new OTP record
+            PasswordOtp::create([
+                'email' => $request->email,
+                'otp' => $otp,
+                'expires_at' => $expiresAt,
+            ]);
+
+            // Send OTP via email using professional template
+            Mail::send('emails.otp-reset-password', [
+                'otp' => $otp,
+                'email' => $request->email
+            ], function ($message) use ($request) {
+                $message->to($request->email)
+                    ->subject('🔐 PPOB - Kode OTP Reset Password');
+            });
+
+            // Log successful OTP generation
+            Log::info('OTP generated for password reset', [
+                'email' => $request->email,
+                'otp' => $otp, // For debugging purposes - remove in production
+                'expires_at' => $expiresAt,
+                'ip' => $request->ip()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Kode OTP telah dikirim ke email Anda',
+                'data' => [
+                    'email' => $request->email,
+                    'expires_in_seconds' => 60,
+                    // Remove this line in production for security:
+                    'otp_for_testing' => config('app.debug') ? $otp : null
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Forgot password error', [
+                'error' => $e->getMessage(),
+                'email' => $request->email ?? 'unknown',
+                'ip' => $request->ip()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengirim OTP. Silakan coba lagi.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Reset password using OTP
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function resetPassword(Request $request)
+    {
+        try {
+            // Validasi input
+            $validator = Validator::make($request->all(), [
+                'email' => 'required|email|exists:users,email',
+                'otp' => 'required|string|size:4',
+                'password' => 'required|string|min:8|confirmed',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation error',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // Find valid OTP record
+            $otpRecord = PasswordOtp::where('email', $request->email)
+                ->where('otp', $request->otp)
+                ->where('expires_at', '>', Carbon::now())
+                ->first();
+
+            if (!$otpRecord) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kode OTP tidak valid atau sudah kadaluarsa'
+                ], 422);
+            }
+
+            // Find user
+            $user = User::where('email', $request->email)->first();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User tidak ditemukan'
+                ], 404);
+            }
+
+            // Update password
+            $user->password = Hash::make($request->password);
+            $user->save();
+
+            // Delete used OTP
+            $otpRecord->delete();
+
+            // Revoke all existing tokens for security
+            $user->tokens()->delete();
+
+            // Log successful password reset
+            Log::info('Password reset successful', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'ip' => $request->ip()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Password berhasil direset. Silakan login dengan password baru Anda.'
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Reset password error', [
+                'error' => $e->getMessage(),
+                'email' => $request->email ?? 'unknown',
+                'ip' => $request->ip()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal reset password. Silakan coba lagi.',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
