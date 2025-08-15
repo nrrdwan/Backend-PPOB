@@ -1,24 +1,25 @@
 <?php
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\MidtransController;
 use App\Http\Controllers\Api\PPOBController;
 use App\Http\Controllers\Api\WalletController;
-use App\Http\Controllers\Api\MidtransController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
 | API Routes
 |--------------------------------------------------------------------------
-|
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "api" middleware group. Make something great!
-|
+| Semua route di sini otomatis berada pada prefix "api" (RouteServiceProvider).
+| Komentar diseragamkan, penataan dikelompokkan, dan chaining dipakai agar rapi.
 */
 
-// Public routes (tidak perlu authentication)
+/**
+ * --------------------------------------------------------------------------
+ * Public: Auth (tanpa autentikasi)
+ * --------------------------------------------------------------------------
+ */
 Route::prefix('auth')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login', [AuthController::class, 'login']);
@@ -26,47 +27,49 @@ Route::prefix('auth')->group(function () {
     Route::post('reset-password', [AuthController::class, 'resetPassword']);
 });
 
-// Protected routes (perlu authentication dengan Sanctum)
+/**
+ * --------------------------------------------------------------------------
+ * Protected: Semua route yang butuh Sanctum
+ * --------------------------------------------------------------------------
+ */
 Route::middleware('auth:sanctum')->group(function () {
-    // Auth routes
+    // Auth (protected)
     Route::prefix('auth')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::post('logout-all', [AuthController::class, 'logoutAll']);
         Route::get('profile', [AuthController::class, 'profile']);
     });
-    
-    // Test route untuk memastikan authentication bekerja
+
+    // Sanity check user (protected)
     Route::get('user', function (Request $request) {
         return response()->json([
             'success' => true,
             'message' => 'Authenticated user data',
-            'data' => [
-                'user' => $request->user()
-            ]
+            'data'    => ['user' => $request->user()],
         ]);
     });
 
-    // PPOB routes
+    // PPOB (protected)
     Route::prefix('ppob')->group(function () {
-        // Product management
+        // Product
         Route::get('categories', [PPOBController::class, 'getCategories']);
         Route::get('products', [PPOBController::class, 'getProducts']);
         Route::get('products/{productId}', [PPOBController::class, 'getProductDetail']);
-        
-        // Transaction management
+
+        // Transaction
         Route::post('purchase', [PPOBController::class, 'purchase']);
         Route::get('transaction/{transactionId}', [PPOBController::class, 'getTransactionStatus']);
         Route::get('transactions', [PPOBController::class, 'getTransactionHistory']);
     });
 
-    // Wallet routes
+    // Wallet (protected)
     Route::prefix('wallet')->group(function () {
         Route::get('balance', [WalletController::class, 'getBalance']);
         Route::post('topup', [WalletController::class, 'topUp']);
         Route::get('history', [WalletController::class, 'getBalanceHistory']);
     });
 
-    // Midtrans routes
+    // Midtrans (protected)
     Route::prefix('midtrans')->group(function () {
         Route::post('create-token', [MidtransController::class, 'createSnapToken']);
         Route::get('status/{transactionId}', [MidtransController::class, 'getStatus']);
@@ -74,26 +77,32 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 });
 
-// Midtrans Notification (tidak perlu authentication)
-Route::post('midtrans/notification', [MidtransController::class, 'notification']);
-Route::post('midtrans/debug-notification', [MidtransController::class, 'debugNotification']);
-Route::post('midtrans/test-generate-signature', [MidtransController::class, 'generateSignature']);
-Route::get('midtrans/finish', function () {
-    return view('midtrans.finish');
-});
-Route::get('midtrans/error', function () {
-    return view('midtrans.error');
-});
-Route::get('midtrans/pending', function () {
-    return view('midtrans.pending');
+/**
+ * --------------------------------------------------------------------------
+ * Public: Midtrans callback & helper (tanpa autentikasi)
+ * --------------------------------------------------------------------------
+ */
+Route::prefix('midtrans')->group(function () {
+    Route::post('notification', [MidtransController::class, 'notification']);
+    Route::post('debug-notification', [MidtransController::class, 'debugNotification']);
+    Route::post('test-generate-signature', [MidtransController::class, 'generateSignature']);
+
+    // Halaman redirect (opsional untuk front-end)
+    Route::get('finish', fn () => view('midtrans.finish'));
+    Route::get('error', fn () => view('midtrans.error'));
+    Route::get('pending', fn () => view('midtrans.pending'));
 });
 
-// Health check route
+/**
+ * --------------------------------------------------------------------------
+ * Public: Health check
+ * --------------------------------------------------------------------------
+ */
 Route::get('health', function () {
     return response()->json([
-        'success' => true,
-        'message' => 'PPOB API is running',
+        'success'   => true,
+        'message'   => 'PPOB API is running',
         'timestamp' => now(),
-        'version' => '1.0.0'
+        'version'   => '1.0.0',
     ]);
 });

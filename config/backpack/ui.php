@@ -46,7 +46,7 @@ return [
     // ----
 
     // Project name - shown in the window title
-    'project_name' => 'PPOB Admin Panel',
+    'project_name' => 'PPOB Merah Putih',
 
     // Content of the HTML meta robots tag to prevent indexing and link following
     'meta_robots_content' => 'noindex, nofollow',
@@ -63,7 +63,7 @@ return [
     'home_link' => '',
 
     // Menu logo. You can replace this with an <img> tag if you have a logo.
-    'project_logo' => '<b>PPOB</b> Admin',
+    'project_logo' => '<b style="color: red;">PPOB ‌</b> Merah Putih',
 
     // Show / hide breadcrumbs on admin panel pages.
     'breadcrumbs' => true,
