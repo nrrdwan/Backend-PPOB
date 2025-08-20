@@ -22,7 +22,7 @@ class Role extends Model
     ];
 
     /**
-     * Auto generate slug from name
+     * Otomatis generate slug dari nama
      */
     protected static function boot()
     {
@@ -42,7 +42,7 @@ class Role extends Model
     }
 
     /**
-     * Role has many permissions
+     * Role memiliki banyak izin
      */
     public function permissions()
     {
@@ -50,7 +50,7 @@ class Role extends Model
     }
 
     /**
-     * Role has many users
+     * Role memiliki banyak pengguna
      */
     public function users()
     {
@@ -58,7 +58,7 @@ class Role extends Model
     }
 
     /**
-     * Check if role has permission
+     * Cek apakah role memiliki izin
      */
     public function hasPermission($permission)
     {
@@ -70,7 +70,7 @@ class Role extends Model
     }
 
     /**
-     * Give permission to role
+     * Berikan izin kepada role
      */
     public function givePermission($permission)
     {
@@ -84,7 +84,7 @@ class Role extends Model
     }
 
     /**
-     * Revoke permission from role
+     * Cabut izin dari role
      */
     public function revokePermission($permission)
     {

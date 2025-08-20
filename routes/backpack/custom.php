@@ -43,6 +43,7 @@ Route::group([
     Route::crud('transaction', 'TransactionCrudController');
     Route::crud('role', 'RoleCrudController');
     Route::crud('permission', 'PermissionCrudController');
+    Route::crud('product-commission', 'ProductCommissionCrudController');
 }); // this should be the absolute last line of this file
 
 /**

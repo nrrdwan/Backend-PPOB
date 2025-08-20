@@ -23,7 +23,7 @@ class Permission extends Model
     ];
 
     /**
-     * Auto generate slug from name
+     * Otomatis generate slug dari nama
      */
     protected static function boot()
     {
@@ -43,7 +43,7 @@ class Permission extends Model
     }
 
     /**
-     * Permission belongs to many roles
+     * Permission dimiliki oleh banyak role
      */
     public function roles()
     {
@@ -51,7 +51,7 @@ class Permission extends Model
     }
 
     /**
-     * Scope by group
+     * Scope berdasarkan grup
      */
     public function scopeByGroup($query, $group)
     {
@@ -59,7 +59,7 @@ class Permission extends Model
     }
 
     /**
-     * Get permission groups
+     * Dapatkan grup permission
      */
     public static function getGroups()
     {

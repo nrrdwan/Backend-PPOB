@@ -84,4 +84,43 @@ class Product extends Model
     {
         return number_format($this->selling_price, 0, ',', '.');
     }
+
+    /**
+     * Relasi ke ProductCommission
+     */
+    public function commission()
+    {
+        return $this->hasOne(ProductCommission::class);
+    }
+
+    /**
+     * Get atau buat commission record untuk produk ini
+     */
+    public function getOrCreateCommission()
+    {
+        if (!$this->commission) {
+            return ProductCommission::create([
+                'product_id' => $this->id,
+                'seller_commission' => 0,
+                'seller_commission_type' => 'percent',
+                'reseller_commission' => 0,
+                'reseller_commission_type' => 'percent',
+                'b2b_commission' => 0,
+                'b2b_commission_type' => 'percent',
+                'is_active' => true,
+            ]);
+        }
+        return $this->commission;
+    }
+
+    /**
+     * Hitung komisi untuk user type tertentu
+     */
+    public function calculateCommissionFor(string $userType, float $amount = null): float
+    {
+        $commission = $this->getOrCreateCommission();
+        $amount = $amount ?? $this->selling_price;
+        
+        return $commission->calculateCommission($userType, $amount);
+    }
 }

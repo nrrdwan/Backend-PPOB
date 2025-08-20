@@ -8,6 +8,7 @@
 <x-backpack::menu-dropdown title="Data Management" icon="la la-database">
     <x-backpack::menu-dropdown-item title="Users" icon="la la-users" :link="backpack_url('user')" />
     <x-backpack::menu-dropdown-item title="Products" icon="la la-shopping-cart" :link="backpack_url('product')" />
+    <x-backpack::menu-dropdown-item title="Product Commissions" icon="la la-percentage" :link="backpack_url('product-commission')" />
     <x-backpack::menu-dropdown-item title="Transactions" icon="la la-exchange" :link="backpack_url('transaction')" />
 </x-backpack::menu-dropdown>
 
