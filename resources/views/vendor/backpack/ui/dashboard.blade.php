@@ -140,5 +140,94 @@
     }
 @endphp
 
+@push('after_styles')
+<style>
+    /* Progress Cards - Merah Putih Theme */
+    .bg-primary { background-color: #FF0000 !important; }
+    .bg-success { background-color: #CC0000 !important; }
+    .bg-warning { background-color: #FFC107 !important; }
+    .bg-info { background-color: #F44336 !important; }
+    
+    /* Card Stats Colors */
+    .text-success { color: #CC0000 !important; }
+    .text-primary { color: #FF0000 !important; }
+    .text-info { color: #F44336 !important; }
+    .text-warning { color: #FFC107 !important; }
+    
+    /* Badge Colors */
+    .badge.bg-success { background-color: #CC0000 !important; }
+    .badge.bg-danger { background-color: #FF0000 !important; }
+    .badge.bg-warning { background-color: #FFC107 !important; }
+    .badge.bg-info { background-color: #F44336 !important; }
+    
+    /* Card Styling */
+    .card {
+        border-radius: 15px;
+        border: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,.08);
+        transition: transform .3s ease;
+    }
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 20px rgba(0,0,0,.15);
+    }
+</style>
+@endpush
+
+@push('after_scripts')
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Chart untuk transaksi (jika ada canvas dengan id transactionChart)
+    const el = document.getElementById('transactionChart');
+    if (el) {
+        const labels = JSON.parse(el.dataset.labels || '[]');
+        const series = JSON.parse(el.dataset.series || '[]');
+        const ctx = el.getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Transaksi Bulanan',
+                    data: series,
+                    borderColor: '#FF0000',
+                    backgroundColor: 'rgba(255,0,0,0.1)',
+                    pointBackgroundColor: '#FF0000',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: { 
+                responsive: true,
+                plugins: {
+                    title: { 
+                        display: true, 
+                        text: 'Grafik Transaksi Bulanan',
+                        color: '#FF0000'
+                    },
+                    legend: { display: false }
+                },
+                scales: {
+                    y: { 
+                        beginAtZero: true, 
+                        grid: { color: '#f1f1f1' },
+                        ticks: { color: '#666' }
+                    },
+                    x: { 
+                        grid: { color: '#f1f1f1' },
+                        ticks: { color: '#666' }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+@endpush
+
 @section('content')
 @endsection

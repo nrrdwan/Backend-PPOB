@@ -1,18 +1,5 @@
-/* Ubah background hitam di dashboard jadi merah */
-.bg-dark,
-.card.bg-dark,
-body .bg-dark,
-body .card.bg-dark,
-body {
-    background-color: #FF0000 !important;
-    color: #fff !important;
-}
-
-/* Jika ada elemen dengan background hitam lain */
-.dashboard-bg,
-.page,
-.navbar,
-.sidebar {
+/* Merah Putih untuk background, tombol, input, navbar, sidebar */
+body, .bg-dark, .dashboard-bg, .page, .navbar, .sidebar {
     background-color: #FF0000 !important;
     color: #fff !important;
 }
