@@ -17,7 +17,7 @@ class AuthController extends Controller
 {
     /**
      * Register a new user
-     * 
+     *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
@@ -100,7 +100,7 @@ class AuthController extends Controller
 
     /**
      * Login user
-     * 
+     *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
@@ -202,7 +202,7 @@ class AuthController extends Controller
 
     /**
      * Logout user (revoke current token)
-     * 
+     *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
@@ -241,7 +241,7 @@ class AuthController extends Controller
 
     /**
      * Logout from all devices (revoke all tokens)
-     * 
+     *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
@@ -280,7 +280,7 @@ class AuthController extends Controller
 
     /**
      * Get current authenticated user profile
-     * 
+     *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
@@ -323,8 +323,56 @@ class AuthController extends Controller
     }
 
     /**
+     * Set or update user PIN
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function setPin(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'pin' => 'required|digits:6|confirmed',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation error',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $user = $request->user();
+            $user->pin = Hash::make($request->pin);
+            $user->save();
+
+            Log::info('User PIN set/updated', [
+                'user_id' => $user->id,
+                'ip' => $request->ip()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'PIN berhasil disimpan'
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Set PIN error', [
+                'error' => $e->getMessage(),
+                'ip' => $request->ip()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menyimpan PIN. Silakan coba lagi.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
      * Send OTP to email for password reset
-     * 
+     *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
@@ -346,7 +394,7 @@ class AuthController extends Controller
 
             // Generate 4 digit OTP
             $otp = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
-            
+
             // Set expiration time to 1 minute from now
             $expiresAt = Carbon::now()->addMinute();
 
@@ -405,7 +453,7 @@ class AuthController extends Controller
 
     /**
      * Reset password using OTP
-     * 
+     *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
@@ -481,6 +529,150 @@ class AuthController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal reset password. Silakan coba lagi.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Change authenticated user's password.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function changePassword(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            // Validasi input
+            $validator = Validator::make($request->all(), [
+                'old_password' => 'required|string',
+                'new_password' => 'required|string|min:8|confirmed',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation error',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // Verifikasi password lama
+            if (!Hash::check($request->old_password, $user->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Password lama salah'
+                ], 400);
+            }
+
+            // Pastikan password baru tidak sama dengan password lama
+            if (Hash::check($request->new_password, $user->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Password baru tidak boleh sama dengan password lama'
+                ], 400);
+            }
+
+            // Update password
+            $user->password = Hash::make($request->new_password);
+            $user->save();
+
+            // Revoke semua token (paksa login ulang)
+            $user->tokens()->delete();
+
+            Log::info('User password changed via API', [
+                'user_id' => $user->id,
+                'email'   => $user->email,
+                'ip'      => $request->ip()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Password berhasil diubah. Silakan login ulang.'
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Change password error', [
+                'error'   => $e->getMessage(),
+                'user_id' => $request->user()->id ?? 'unknown',
+                'ip'      => $request->ip()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengubah password. Silakan coba lagi.',
+                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'full_name' => 'required|string|max:255',
+            'email'     => 'required|email|unique:users,email,' . $user->id,
+        ]);
+
+        $user->full_name = $validated['full_name'];
+        $user->email     = $validated['email'];
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profil berhasil diperbarui',
+            'data'    => ['user' => $user]
+        ], 200);
+    }
+
+    /**
+     * Delete authenticated user's account.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function deleteAccount(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            // Log the deletion attempt
+            Log::warning('User account deletion initiated via API', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'ip' => $request->ip()
+            ]);
+
+            // Delete all associated tokens
+            $user->tokens()->delete();
+
+            // Delete the user record
+            $user->delete();
+
+            Log::info('User account deleted successfully via API', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'ip' => $request->ip()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Akun berhasil dihapus'
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Delete account error', [
+                'error' => $e->getMessage(),
+                'user_id' => $request->user()->id ?? 'unknown',
+                'ip' => $request->ip()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menghapus akun. Silakan coba lagi.',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
