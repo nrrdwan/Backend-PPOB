@@ -22,8 +22,11 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'full_name',
         'email',
+        'phone',
         'password',
+        'pin',
         'balance',
         'role',
         'is_active',
@@ -61,7 +64,7 @@ class User extends Authenticatable
      */
     public function isAdmin(): bool
     {
-        return $this->role === 'admin';
+        return strtolower($this->role) === 'admin';
     }
 
     /**
@@ -69,7 +72,7 @@ class User extends Authenticatable
      */
     public function isOperator(): bool
     {
-        return $this->role === 'operator';
+        return strtolower($this->role) === 'operator';
     }
 
     /**
