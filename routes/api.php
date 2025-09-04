@@ -18,6 +18,8 @@ Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
     Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
     Route::post('reset-password', [AuthController::class, 'resetPassword']);
+    Route::post('logout', [AuthController::class, 'logout']);
+
 });
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -28,7 +30,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('pin', [AuthController::class, 'setPin']);
         Route::post('change-password', [AuthController::class, 'changePassword']);
         Route::put('updateProfile', [AuthController::class, 'updateProfile']);
-
+        Route::post('verify-pin', [AuthController::class, 'verifyPin']);
     });
 
     Route::get('user', function (Request $request) {
