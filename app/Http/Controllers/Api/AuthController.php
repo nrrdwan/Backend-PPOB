@@ -613,11 +613,11 @@ class AuthController extends Controller
         $user = $request->user();
 
         $validated = $request->validate([
-            'full_name' => 'required|string|max:255',
+            'name' => 'required|string|max:255',
             'email'     => 'required|email|unique:users,email,' . $user->id,
         ]);
 
-        $user->full_name = $validated['full_name'];
+        $user->name = $validated['name'];
         $user->email     = $validated['email'];
         $user->save();
 
@@ -625,6 +625,35 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Profil berhasil diperbarui',
             'data'    => ['user' => $user]
+        ], 200);
+    }
+
+    public function verifyPin(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'pin' => 'required|digits:6',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user = $request->user();
+
+        if (!$user->pin || !Hash::check($request->pin, $user->pin)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'PIN salah'
+            ], 401);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'PIN valid'
         ], 200);
     }
 
