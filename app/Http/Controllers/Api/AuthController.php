@@ -30,7 +30,8 @@ class AuthController extends Controller
                 'email' => 'required|string|email|max:255|unique:users',
                 'password' => 'required|string|min:8|confirmed',
                 'phone' => 'nullable|string|max:20',
-                'full_name' => 'nullable|string|max:255'
+                'full_name' => 'nullable|string|max:255',
+                'pin' => 'required|digits:6|confirmed',
             ]);
 
             if ($validator->fails()) {
@@ -51,7 +52,8 @@ class AuthController extends Controller
                 'role' => 'User Biasa', // Default role untuk mobile app
                 'is_active' => true,
                 'email_verified_at' => now(), // Auto verify untuk PPOB
-                'kyc_status' => 'unverified'
+                'kyc_status' => 'unverified',
+                'pin' => Hash::make($request->pin), // 🔹 simpan PIN langsung
             ]);
 
             // Buat token
