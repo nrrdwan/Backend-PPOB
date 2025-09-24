@@ -49,17 +49,15 @@ class AuthController extends Controller
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'phone' => $request->phone,
-                'role' => 'User Biasa', // Default role untuk mobile app
+                'role' => 'User Biasa',
                 'is_active' => true,
-                'email_verified_at' => now(), // Auto verify untuk PPOB
+                'email_verified_at' => now(),
                 'kyc_status' => 'unverified',
-                'pin' => Hash::make($request->pin), // 🔹 simpan PIN langsung
+                'pin' => Hash::make($request->pin),
             ]);
 
-            // Buat token
             $token = $user->createToken('ppob-mobile-app')->plainTextToken;
 
-            // Log successful registration
             Log::info('User registered via API', [
                 'user_id' => $user->id,
                 'email' => $user->email,
