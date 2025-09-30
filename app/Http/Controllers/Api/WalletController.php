@@ -21,6 +21,13 @@ class WalletController extends Controller
         try {
             $user = Auth::user();
 
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ], 401);
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Balance retrieved successfully',
@@ -62,9 +69,16 @@ class WalletController extends Controller
                 ], 422);
             }
 
+            $user = Auth::user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ], 401);
+            }
+
             DB::beginTransaction();
 
-            $user = Auth::user();
             $amount = $request->amount;
 
             // Create transaction record for top up
@@ -81,9 +95,6 @@ class WalletController extends Controller
                 'notes' => $request->notes ?? 'Top up saldo',
                 'processed_at' => now()
             ]);
-
-            /** @var \App\Models\User $user */
-            $user = $request->user();
 
             // Add balance to user
             $user->addBalance($amount);
@@ -144,6 +155,13 @@ class WalletController extends Controller
             }
 
             $user = Auth::user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ], 401);
+            }
+
             $query = Transaction::byUser($user->id)
                                ->with(['product'])
                                ->recent();
