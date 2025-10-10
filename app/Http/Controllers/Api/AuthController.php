@@ -57,6 +57,7 @@ class AuthController extends Controller
             ]);
 
             $token = $user->createToken('ppob-mobile-app')->plainTextToken;
+            
 
             Log::info('User registered via API', [
                 'user_id' => $user->id,

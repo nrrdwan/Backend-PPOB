@@ -1,9 +1,9 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\MidtransController;
 use App\Http\Controllers\Api\PPOBController;
 use App\Http\Controllers\Api\WalletController;
+use App\Http\Controllers\Api\MidtransController; // ✅ GUNAKAN MidtransController
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -55,22 +55,29 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('history', [WalletController::class, 'getBalanceHistory']);
     });
 
-    Route::prefix('midtrans')->group(function () {
-        Route::post('create-token', [MidtransController::class, 'createSnapToken']);
-        Route::get('status/{transactionId}', [MidtransController::class, 'getStatus']);
-        Route::post('generate-signature', [MidtransController::class, 'generateSignature']);
+    // 🔥 Midtrans Routes - SESUAI DENGAN IMPLEMENTASI KITA
+    Route::prefix('midtrans')->group(function () {  
+        // Core API Bank Transfer
+        Route::post('/create-bank-transfer', [MidtransController::class, 'createBankTransfer']);
+        
+        // Status & Details
+        Route::get('/status/{transactionId}', [MidtransController::class, 'getStatus']);
+        Route::get('/payment-details/{transactionId}', [MidtransController::class, 'getPaymentDetails']);
+        
+        // Manual & Notification
+        Route::post('/manual-success', [MidtransController::class, 'manualSuccess']);
+        Route::post('/notification', [MidtransController::class, 'notification']);
+    });
+
+    // 🔥 Opsional: Jika tetap butuh CoreMidtransController
+    Route::prefix('midtrans/core')->group(function () {
+        Route::post('transaction', [CoreMidtransController::class, 'createTransaction']);
+        Route::get('status/{orderId}', [CoreMidtransController::class, 'getStatus']);
+        Route::post('notification', [CoreMidtransController::class, 'notification']);
     });
 });
 
-Route::prefix('midtrans')->group(function () {
-    Route::post('notification', [MidtransController::class, 'notification']);
-    Route::post('debug-notification', [MidtransController::class, 'debugNotification']);
-    Route::post('test-generate-signature', [MidtransController::class, 'generateSignature']);
-    Route::get('finish', fn () => view('midtrans.finish'));
-    Route::get('error', fn () => view('midtrans.error'));
-    Route::get('pending', fn () => view('midtrans.pending'));
-});
-
+// ✅ Public health check
 Route::get('health', function () {
     return response()->json([
         'success'   => true,

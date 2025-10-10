@@ -12,9 +12,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Exclude CSRF verification for Midtrans notification
+        $middleware->api(prepend: [
+            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+        ]);
         $middleware->validateCsrfTokens(except: [
-            'api/midtrans/notification'
+            'api/midtrans/notification',
+            'admin/login',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -50,15 +50,15 @@ class WalletController extends Controller
     }
 
     /**
-     * Top up balance
+     * Top up balance - Create Midtrans transaction
      */
     public function topUp(Request $request)
     {
         try {
             $validator = Validator::make($request->all(), [
+                'deposit_id' => 'sometimes|integer',
                 'amount' => 'required|numeric|min:10000|max:10000000', // Min 10K, Max 10M
-                'payment_method' => 'sometimes|string|in:bank_transfer,ewallet,qris',
-                'notes' => 'sometimes|string|max:500'
+                'payment_method' => 'required|string', // ✅ Terima semua payment method
             ]);
 
             if ($validator->fails()) {
@@ -77,58 +77,23 @@ class WalletController extends Controller
                 ], 401);
             }
 
-            DB::beginTransaction();
+            $amount = (float) $request->amount;
+            $paymentMethod = $request->payment_method;
 
-            $amount = $request->amount;
+            // ✅ Delegate ke MidtransController untuk membuat transaksi
+            // kita buat Request baru dan ikutkan payment_method agar Midtrans tahu metode spesifik
+            $user = $request->user();
 
-            // Create transaction record for top up
-            $transaction = Transaction::create([
-                'user_id' => $user->id,
-                'product_id' => null,
-                'phone_number' => null,
-                'customer_id' => null,
-                'amount' => $amount,
-                'admin_fee' => 0,
-                'total_amount' => $amount,
-                'status' => 'success', // Simulate instant success for demo
-                'type' => 'topup',
-                'notes' => $request->notes ?? 'Top up saldo',
-                'processed_at' => now()
-            ]);
-
-            // Add balance to user
-            $user->addBalance($amount);
-
-            // Log activity
-            Log::info('Balance top up', [
-                'user_id' => $user->id,
-                'amount' => $amount,
-                'transaction_id' => $transaction->transaction_id,
-                'new_balance' => $user->balance
-            ]);
-
-            DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Top up successful',
-                'data' => [
-                    'transaction_id' => $transaction->transaction_id,
-                    'amount' => $amount,
-                    'formatted_amount' => number_format($amount, 0, ',', '.'),
-                    'new_balance' => $user->balance,
-                    'formatted_balance' => $user->formatted_balance,
-                    'payment_method' => $request->payment_method ?? 'bank_transfer'
-                ]
-            ], 201);
+            // Forward ke CoreMidtransController
+            $coreController = new CoreMidtransController();
+            return $coreController->createTransaction($request);
 
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Top up error: ' . $e->getMessage());
             
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to top up balance',
+                'message' => 'Failed to create top up transaction',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
@@ -181,7 +146,7 @@ class WalletController extends Controller
             $formattedTransactions = $transactions->map(function ($transaction) {
                 return [
                     'id' => $transaction->id,
-                    'transaction_id' => $transaction->transaction_id,
+                    'transaction_id' => $transaction->transaction_id ?? $transaction->id,
                     'type' => $transaction->type,
                     'amount' => $transaction->total_amount,
                     'formatted_amount' => $transaction->formatted_total_amount,
