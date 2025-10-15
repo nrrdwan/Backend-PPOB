@@ -41,9 +41,11 @@ return [
             'provider' => 'users',
         ],
 
-        'sanctum' => [
+        'api' => [
             'driver' => 'sanctum',
             'provider' => 'users',
+            'throttle:api',
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],
     ],
 

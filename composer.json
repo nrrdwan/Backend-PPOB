@@ -9,6 +9,7 @@
         "php": "^8.2",
         "backpack/crud": "^6.8",
         "backpack/theme-tabler": "^1.2",
+        "google/apiclient": "2.15",
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.2",
         "laravel/tinker": "^2.10.1"

@@ -186,6 +186,103 @@ class WalletController extends Controller
         }
     }
 
+    public function withdraw(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'amount' => 'required|numeric|min:10000',
+                'phone_number' => 'required|string|max:20',
+                'method_id' => 'required|in:INDOMARET,ALFAMART',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation error',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $user = Auth::user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ], 401);
+            }
+
+            $amount = (float) $request->amount;
+            $method = strtoupper($request->method_id); // INDOMART / ALFAMART
+
+            // ✅ Validasi saldo cukup
+            if ($user->balance < $amount) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Saldo tidak mencukupi untuk melakukan penarikan'
+                ], 400);
+            }
+
+            // ✅ Buat kode unik (mengandung method, user, dan nominal)
+            // Contoh: MODI-IND-00123-240101-150000
+            $timestamp = now()->format('ymd');
+            $uniqueCode = sprintf(
+                'MODI-%s-%05d-%s-%d',
+                substr($method, 0, 3),
+                $user->id,
+                $timestamp,
+                $amount
+            );
+
+            DB::beginTransaction();
+
+            // Kurangi saldo user
+            $user->balance -= $amount;
+            $user->save();
+
+            // Simpan transaksi withdraw
+            $transaction = Transaction::create([
+                'user_id' => $user->id,
+                'type' => 'withdraw',
+                'amount' => $amount,
+                'status' => 'pending',
+                'description' => "Tarik tunai melalui $method",
+                'metadata' => json_encode([
+                    'method' => $method,
+                    'phone_number' => $request->phone_number,
+                    'withdraw_code' => $uniqueCode,
+                ]),
+            ]);
+
+            DB::commit();
+
+            // ✅ Kembalikan uniqueCode langsung ke frontend
+            return response()->json([
+                'success' => true,
+                'message' => 'Permintaan penarikan berhasil dibuat',
+                'data' => [
+                    'transaction_id' => $transaction->id,
+                    'amount' => $amount,
+                    'method' => $method,
+                    'withdraw_code' => $uniqueCode,
+                    'instruction' => "Tunjukkan kode berikut ke kasir $method untuk menarik tunai.",
+                    'status' => $transaction->status,
+                    'current_balance' => $user->balance,
+                    'formatted_balance' => $user->formatted_balance,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Withdraw error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat melakukan penarikan',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
     /**
      * Get transaction description based on type and product
      */

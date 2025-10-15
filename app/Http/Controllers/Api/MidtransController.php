@@ -156,6 +156,87 @@ class MidtransController extends Controller
         }
     }
 
+    public function createManualTransfer(Request $request)
+    {
+        Log::info('🟡 [Midtrans] createManualTransfer called', ['request' => $request->all()]);
+
+        $request->validate([
+            'amount' => 'required|numeric|min:10000|max:10000000'
+        ]);
+
+        $user = $request->user();
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ], 401);
+        }
+
+        $amount = $request->amount;
+        $adminFee = $this->calculateAdminFee($amount);
+        $totalAmount = $amount + $adminFee;
+
+        // Generate kode unik (misal DEP + 6 digit acak)
+        $transferCode = 'DEP' . strtoupper(Str::random(6));
+
+        // Rekening tujuan tetap (ubah sesuai rekening perusahaan kamu)
+        $accountNumber = '010001002976560';
+        $accountName   = 'PT MODI TEKNO SOLUSINDO';
+        $bankName      = 'BANK BCA';
+
+        try {
+            DB::beginTransaction();
+
+            $transaction = Transaction::create([
+                'transaction_id' => 'TF-' . time() . '-' . $user->id,
+                'user_id'        => $user->id,
+                'type'           => 'topup',
+                'amount'         => $amount,
+                'admin_fee'      => $adminFee,
+                'total_amount'   => $totalAmount,
+                'status'         => 'pending',
+                'channel'        => 'manual_transfer',
+                'notes'          => 'Manual bank transfer (' . $bankName . ')',
+                'provider_response' => [
+                    'transfer_code'  => $transferCode,
+                    'account_number' => $accountNumber,
+                    'account_name'   => $accountName,
+                    'bank_name'      => $bankName
+                ]
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Manual transfer transaction created successfully',
+                'data' => [
+                    'transaction_id' => $transaction->transaction_id,
+                    'transfer_code'  => $transferCode,
+                    'bank_name'      => $bankName,
+                    'account_number' => $accountNumber,
+                    'account_name'   => $accountName,
+                    'amount'         => $amount,
+                    'admin_fee'      => $adminFee,
+                    'total_amount'   => $totalAmount,
+                    'status'         => 'pending'
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('🔴 [Midtrans] createManualTransfer exception: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal membuat transaksi manual transfer. Silakan coba lagi.',
+                'error'   => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
     private function mapToFlutterPaymentType($midtransPaymentType, $midtransData)
     {
         $typeMap = [

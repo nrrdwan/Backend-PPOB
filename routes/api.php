@@ -3,7 +3,8 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\PPOBController;
 use App\Http\Controllers\Api\WalletController;
-use App\Http\Controllers\Api\MidtransController; // ✅ GUNAKAN MidtransController
+use App\Http\Controllers\Api\MidtransController;
+use App\Http\Controllers\Api\NotificationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -30,6 +31,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('change-password', [AuthController::class, 'changePassword']);
         Route::put('updateProfile', [AuthController::class, 'updateProfile']);
         Route::post('verify-pin', [AuthController::class, 'verifyPin']);
+        Route::post('midtrans/create-bank-transfer', [MidtransController::class, 'createBankTransfer']);
+        Route::post('midtrans/create-manual-transfer', [MidtransController::class, 'createManualTransfer']);
+        Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::post('/notifications', [NotificationController::class, 'store']);
+        Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+        Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
     });
 
     Route::get('user', function (Request $request) {
@@ -53,12 +60,22 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('balance', [WalletController::class, 'getBalance']);
         Route::post('topup', [WalletController::class, 'topUp']);
         Route::get('history', [WalletController::class, 'getBalanceHistory']);
+        Route::post('withdraw', [WalletController::class, 'withdraw']);
+        Route::get('withdraw/{transaction_id?}', [WalletController::class, 'getWithdrawCode']);
+    });
+
+    Route::prefix('notifications')->group(function () {
+        Route::get('/', [NotificationController::class, 'index']);
+        Route::post('/', [NotificationController::class, 'store']);
+        Route::patch('/{id}/read', [NotificationController::class, 'markAsRead']);
+        Route::delete('/{id}', [NotificationController::class, 'destroy']);
     });
 
     // 🔥 Midtrans Routes - SESUAI DENGAN IMPLEMENTASI KITA
     Route::prefix('midtrans')->group(function () {  
         // Core API Bank Transfer
         Route::post('/create-bank-transfer', [MidtransController::class, 'createBankTransfer']);
+        Route::post('/create-manual-transfer', [MidtransController::class, 'createManualTransfer']);
         
         // Status & Details
         Route::get('/status/{transactionId}', [MidtransController::class, 'getStatus']);
@@ -71,9 +88,16 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // 🔥 Opsional: Jika tetap butuh CoreMidtransController
     Route::prefix('midtrans/core')->group(function () {
-        Route::post('transaction', [CoreMidtransController::class, 'createTransaction']);
-        Route::get('status/{orderId}', [CoreMidtransController::class, 'getStatus']);
-        Route::post('notification', [CoreMidtransController::class, 'notification']);
+        Route::post('transaction', [MidtransController::class, 'createTransaction']);
+        Route::get('status/{orderId}', [MidtransController::class, 'getStatus']);
+        Route::post('notification', [MidtransController::class, 'notification']);
+    });
+
+    // ✅ Simpan FCM Token dari Flutter
+    Route::post('/save-fcm-token', function (Request $request) {
+        $request->validate(['fcm_token' => 'required|string']);
+        $request->user()->update(['fcm_token' => $request->fcm_token]);
+        return response()->json(['message' => 'FCM token disimpan']);
     });
 });
 

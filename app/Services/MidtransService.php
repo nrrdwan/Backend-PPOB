@@ -48,30 +48,78 @@ class MidtransService
         return $data;
     }
 
-    /**
-     * 🏦 Create Bank Transfer Transaction (Core API)
-     */
-    public function createBankTransfer(array $transactionData, string $bankType): array
+    public function createManualTransfer($amount, $deviceName = 'Unknown Device')
     {
-        $params = [
-            'payment_type' => 'bank_transfer',
-            'transaction_details' => [
-                'order_id' => $transactionData['order_id'],
-                'gross_amount' => $transactionData['gross_amount'],
-            ],
-            'customer_details' => $transactionData['customer_details'] ?? [],
-            'item_details' => $transactionData['item_details'] ?? [],
-            'bank_transfer' => [
-                'bank' => $bankType
-            ]
+        // Generate unique transaction ID dan kode unik
+        $transactionId = 'TF-' . strtoupper(uniqid());
+        $uniqueCode = 'DEP' . random_int(100000, 999999);
+
+        // Simpan ke database (jika perlu, tergantung struktur tabel kamu)
+        $transaction = \App\Models\Transaction::create([
+            'transaction_id' => $transactionId,
+            'amount' => $amount,
+            'status' => 'pending',
+            'channel' => 'manual_transfer',
+            'provider_response' => json_encode([]),
+        ]);
+
+        // Data rekening tujuan (bisa disesuaikan)
+        $bankInfo = [
+            'bank_name' => 'Bank BCA',
+            'account_number' => '010001002976560',
+            'account_name' => 'PT MODI TEKNO SOLUSINDO',
         ];
 
-        // Tambahkan VA number untuk bank tertentu jika diperlukan
-        if (in_array($bankType, ['bca', 'bni', 'bri'])) {
-            $params['bank_transfer'] = [
-                'bank' => $bankType,
-                'va_number' => '' // Biarkan kosong, Midtrans akan generate
+        return [
+            'transaction_id' => $transactionId,
+            'transfer_code' => $uniqueCode,
+            'amount' => $amount,
+            'admin_fee' => 2500,
+            'total_amount' => $amount + 2500,
+            'bank_name' => $bankInfo['bank_name'],
+            'account_number' => $bankInfo['account_number'],
+            'account_name' => $bankInfo['account_name'],
+            'status' => 'pending',
+        ];
+    }
+
+    public function createBankTransfer(array $transactionData, string $bankType): array
+    {
+        // 🔹 Gunakan echannel khusus untuk Mandiri
+        if ($bankType === 'mandiri') {
+            $params = [
+                'payment_type' => 'echannel',
+                'transaction_details' => [
+                    'order_id' => $transactionData['order_id'],
+                    'gross_amount' => $transactionData['gross_amount'],
+                ],
+                'customer_details' => $transactionData['customer_details'] ?? [],
+                'item_details' => $transactionData['item_details'] ?? [],
+                'echannel' => [
+                    'bill_info1' => 'Payment:',
+                    'bill_info2' => 'Top Up Saldo PPOB',
+                ],
             ];
+
+            Log::info('🏦 [MidtransService] Creating Mandiri E-Channel', ['params' => $params]);
+        } else {
+            // 🔹 Bank lain (BCA, BNI, BRI, Permata, etc)
+            $params = [
+                'payment_type' => 'bank_transfer',
+                'transaction_details' => [
+                    'order_id' => $transactionData['order_id'],
+                    'gross_amount' => $transactionData['gross_amount'],
+                ],
+                'customer_details' => $transactionData['customer_details'] ?? [],
+                'item_details' => $transactionData['item_details'] ?? [],
+                'bank_transfer' => [
+                    'bank' => $bankType,
+                ],
+            ];
+
+            if (in_array($bankType, ['bca', 'bni', 'bri'])) {
+                $params['bank_transfer']['va_number'] = ''; // biarkan Midtrans generate otomatis
+            }
         }
 
         return $this->createCoreTransaction($params);
@@ -215,19 +263,19 @@ class MidtransService
     public function extractPaymentDetails(array $midtransData): array
     {
         $paymentType = $midtransData['payment_type'] ?? null;
-        $details = [];
+        $details = [
+            'payment_type' => $paymentType,
+        ];
 
         switch ($paymentType) {
             case 'bank_transfer':
                 $details['va_numbers'] = $midtransData['va_numbers'] ?? [];
                 $details['permata_va_number'] = $midtransData['permata_va_number'] ?? null;
-                $details['bill_key'] = $midtransData['bill_key'] ?? null;
-                $details['biller_code'] = $midtransData['biller_code'] ?? null;
                 break;
 
-            case 'echannel':
-                $details['bill_key'] = $midtransData['bill_key'] ?? null;
-                $details['biller_code'] = $midtransData['biller_code'] ?? null;
+            case 'echannel': // 🔹 Mandiri VA (bill payment)
+                $details['bill_key'] = $midtransData['echannel']['bill_key'] ?? null;
+                $details['biller_code'] = $midtransData['echannel']['biller_code'] ?? null;
                 break;
 
             case 'qris':
@@ -246,6 +294,9 @@ class MidtransService
         if (isset($midtransData['instructions'])) {
             $details['instructions'] = $midtransData['instructions'];
         }
+
+        // 🔹 Log untuk debugging
+        Log::info('🟢 [extractPaymentDetails] Parsed Payment Details:', $details);
 
         return $details;
     }
