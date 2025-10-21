@@ -22,7 +22,7 @@ return new class extends Migration
             $table->decimal('admin_fee', 15, 2)->default(0);
             $table->decimal('total_amount', 15, 2);
             $table->enum('status', ['pending', 'processing', 'success', 'failed', 'cancelled'])->default('pending');
-            $table->enum('type', ['pulsa', 'data', 'pln', 'pdam', 'game', 'emoney', 'other'])->default('other');
+            $table->enum('type', ['pulsa', 'data', 'pln', 'pdam', 'game', 'emoney', 'other', 'withdraw'])->default('other');
             $table->text('notes')->nullable();
             $table->json('provider_response')->nullable();
             $table->timestamp('processed_at')->nullable();

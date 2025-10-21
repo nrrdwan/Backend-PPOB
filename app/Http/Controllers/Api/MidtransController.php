@@ -7,6 +7,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\Notification;
 use Illuminate\Support\Facades\Log;
 use App\Services\MidtransService;
 use Illuminate\Support\Str;
@@ -479,39 +480,118 @@ class MidtransController extends Controller
     public function notification(Request $request)
     {
         $payload = $request->all();
-        
-        // ✅ HAPUS VERIFIKASI SIGNATURE UNTUK SEMENTARA ATAU PINDAHKAN KE SERVICE
-        // if (!$this->verifySignature($payload)) {
-        //     return response()->json(['message' => 'Invalid signature'], 401);
-        // }
 
-        $orderId = $payload['order_id'];
-        $transactionStatus = $payload['transaction_status'];
+        Log::info('📩 [Midtrans] Webhook diterima', [
+            'payload' => $payload,
+            'headers' => $request->headers->all(),
+        ]);
+
+        $orderId = $payload['order_id'] ?? null;
+        $transactionStatus = $payload['transaction_status'] ?? null;
         $fraudStatus = $payload['fraud_status'] ?? '';
 
-        $transaction = Transaction::where('transaction_id', $orderId)->first();
+        if (!$orderId) {
+            Log::warning('⚠️ [Midtrans] Webhook tanpa order_id!');
+            return response()->json(['message' => 'order_id missing'], 400);
+        }
+
+        $transaction = \App\Models\Transaction::where('transaction_id', $orderId)->first();
+
         if (!$transaction) {
+            Log::warning('🚫 [Midtrans] Transaksi tidak ditemukan di database', [
+                'order_id' => $orderId,
+            ]);
             return response()->json(['message' => 'Transaction not found'], 404);
         }
 
-        DB::beginTransaction();
-        if ($transactionStatus == 'capture' && $fraudStatus == 'accept') {
-            $this->processSuccessfulPayment($transaction);
-        } else if ($transactionStatus == 'settlement') {
-            $this->processSuccessfulPayment($transaction);
-        } else if ($transactionStatus == 'pending') {
-            $transaction->update(['status' => 'pending']);
-        } else if (in_array($transactionStatus, ['deny','expire','cancel'])) {
-            $transaction->update(['status' => 'failed']);
-        }
-        $transaction->update([
-            'callback_data' => json_encode($payload),
-            'processed_at' => now(),
-            'channel' => $payload['payment_type'] ?? $transaction->channel
+        Log::info('🔍 [Midtrans] Transaksi ditemukan', [
+            'order_id' => $orderId,
+            'user_id' => $transaction->user_id,
+            'status_sebelum' => $transaction->status,
+            'transaction_status' => $transactionStatus,
+            'fraud_status' => $fraudStatus,
         ]);
-        DB::commit();
 
-        return response()->json(['message' => 'OK']);
+        \DB::beginTransaction();
+
+        try {
+            if ($transactionStatus == 'capture' && $fraudStatus == 'accept') {
+                $this->processSuccessfulPayment($transaction);
+                Log::info('✅ [Midtrans] Pembayaran berhasil (capture-accept)', [
+                    'user_id' => $transaction->user_id,
+                ]);
+            } elseif ($transactionStatus == 'settlement') {
+                $this->processSuccessfulPayment($transaction);
+                Log::info('✅ [Midtrans] Pembayaran berhasil (settlement)', [
+                    'user_id' => $transaction->user_id,
+                ]);
+
+                // 🔔 Kirim notifikasi ke FCM + simpan ke database
+                try {
+                    $user = $transaction->user;
+                    if ($user && $user->fcm_token) {
+                        \App\Services\FirebaseV1Service::sendNotification(
+                            $user->fcm_token,
+                            'Deposit Berhasil',
+                            'Saldo kamu telah bertambah sebesar Rp ' . number_format($transaction->amount, 0, ',', '.'),
+                            [
+                                'type' => 'deposit_success',
+                                'order_id' => $transaction->transaction_id,
+                            ]
+                        );
+
+                        Notification::sendAndSave(
+                            $transaction->user,
+                            'Deposit Berhasil',
+                            'Saldo kamu telah bertambah sebesar Rp ' . number_format($transaction->amount, 0, ',', '.'),
+                            'deposit_success',
+                            ['order_id' => $transaction->transaction_id]
+                        );
+
+                        Log::info('📱 [FCM] Notifikasi deposit sukses dikirim', [
+                            'user_id' => $user->id,
+                            'transaction_id' => $transaction->transaction_id,
+                        ]);
+                    }
+                } catch (\Throwable $e) {
+                    Log::error('❌ [FCM] Gagal mengirim notifikasi', [
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            } elseif ($transactionStatus == 'pending') {
+                $transaction->update(['status' => 'pending']);
+                Log::info('🕓 [Midtrans] Pembayaran masih pending', ['order_id' => $orderId]);
+            } elseif (in_array($transactionStatus, ['deny', 'expire', 'cancel'])) {
+                $transaction->update(['status' => 'failed']);
+                Log::info('❌ [Midtrans] Pembayaran gagal / dibatalkan', [
+                    'order_id' => $orderId,
+                    'status' => $transactionStatus,
+                ]);
+            }
+
+            $transaction->update([
+                'callback_data' => json_encode($payload),
+                'processed_at' => now(),
+                'channel' => $payload['payment_type'] ?? $transaction->channel
+            ]);
+
+            \DB::commit();
+
+            Log::info('🧾 [Midtrans] Transaksi berhasil diproses & disimpan', [
+                'order_id' => $orderId,
+                'status_akhir' => $transaction->status,
+                'user_balance' => $transaction->user->balance ?? null,
+            ]);
+
+            return response()->json(['message' => 'OK']);
+        } catch (\Throwable $e) {
+            \DB::rollBack();
+            Log::error('🔥 [Midtrans] Gagal memproses webhook', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json(['message' => 'Internal Server Error'], 500);
+        }
     }
 
     public function debugNotification(Request $request)

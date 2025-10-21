@@ -609,6 +609,88 @@ class AuthController extends Controller
         }
     }
 
+    public function updateFcmToken(Request $request)
+    {
+        try {
+            $request->validate([
+                'fcm_token' => 'required|string'
+            ]);
+
+            $user = $request->user();
+            $user->fcm_token = $request->fcm_token;
+            $user->save();
+
+            \Log::info('✅ FCM token updated', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'fcm_token' => $request->fcm_token,
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'FCM token berhasil diperbarui'
+            ], 200);
+        } catch (\Exception $e) {
+            \Log::error('❌ Gagal update FCM token', [
+                'error' => $e->getMessage(),
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal memperbarui token',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    public function saveFcmToken(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ], 401);
+            }
+
+            $request->validate([
+                'fcm_token' => 'required|string',
+            ]);
+
+            $user->fcm_token = $request->fcm_token;
+            $user->save();
+
+            \Log::info('✅ FCM token saved via saveFcmToken()', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'fcm_token' => $user->fcm_token,
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'FCM token berhasil disimpan',
+                'data' => ['user_id' => $user->id]
+            ], 200);
+
+        } catch (\Exception $e) {
+            \Log::error('❌ Gagal save FCM token', [
+                'error' => $e->getMessage(),
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menyimpan token',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
     public function updateProfile(Request $request)
     {
         $user = $request->user();

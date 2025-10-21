@@ -12,17 +12,18 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->text('fcm_token')->nullable();
+            if (!Schema::hasColumn('users', 'fcm_token')) {
+                $table->text('fcm_token')->nullable()->after('remember_token');
+            }
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            //
+            if (Schema::hasColumn('users', 'fcm_token')) {
+                $table->dropColumn('fcm_token');
+            }
         });
     }
 };

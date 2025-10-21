@@ -6,30 +6,35 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Services\FirebaseV1Service;
 use App\Models\Notification;
+use App\Models\User;
 
 class NotificationController extends Controller
 {
-    /**
-     * Ambil semua notifikasi milik user yang sedang login.
-     */
     public function index(Request $request)
     {
         $user = $request->user();
 
-        // Ambil notifikasi user login
+        // Ambil notifikasi user
         $notifications = Notification::where('user_id', $user->id)
             ->orderBy('created_at', 'desc')
-            ->get();
+            ->get()
+            ->map(function ($notif) {
+                return [
+                    'id' => $notif->id,
+                    'title' => $notif->title,
+                    'description' => $notif->message,
+                    'timestamp' => $notif->created_at->diffForHumans(), // contoh: "5 menit yang lalu"
+                    'type' => $notif->type ?? 'today',
+                    'is_read' => (bool) $notif->is_read,
+                ];
+            });
 
         return response()->json([
-            'status' => true,
-            'data' => $notifications
+            'success' => true,
+            'data' => $notifications,
         ]);
     }
 
-    /**
-     * Tambahkan notifikasi baru (misalnya ketika deposit berhasil).
-     */
     public function store(Request $request)
     {
         $request->validate([
@@ -46,7 +51,7 @@ class NotificationController extends Controller
             'type' => $request->type ?? 'info',
         ]);
 
-        $user = User::find($request->user_id);
+        $user = \App\Models\User::find($request->user_id);
 
         if ($user && $user->fcm_token) {
             FirebaseV1Service::sendNotification(
@@ -58,9 +63,15 @@ class NotificationController extends Controller
         }
 
         return response()->json([
-            'status' => true,
+            'success' => true,
             'message' => 'Notifikasi berhasil dibuat dan dikirim ke Firebase',
-            'data' => $notification
+            'data' => [
+                'id' => $notification->id,
+                'title' => $notification->title,
+                'description' => $notification->message,
+                'timestamp' => $notification->created_at->diffForHumans(),
+                'type' => $notification->type,
+            ],
         ], 201);
     }
 

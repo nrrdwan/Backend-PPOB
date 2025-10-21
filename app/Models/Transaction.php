@@ -12,6 +12,8 @@ class Transaction extends Model
     protected $fillable = [
         'transaction_id',
         'user_id',
+        'from_user_id',
+        'to_user_id',
         'product_id',
         'phone_number',
         'customer_id',
@@ -22,7 +24,8 @@ class Transaction extends Model
         'type',
         'notes',
         'provider_response',
-        'processed_at'
+        'processed_at',
+        'metadata'
     ];
 
     protected $casts = [
@@ -30,6 +33,7 @@ class Transaction extends Model
         'processed_at' => 'datetime',
         'amount' => 'decimal:2',
         'admin_fee' => 'decimal:2',
+        'metadata' => 'array',
         'total_amount' => 'decimal:2'
     ];
 
@@ -63,6 +67,16 @@ class Transaction extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function sender(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'from_user_id');
+    }
+
+    public function recipient(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'to_user_id');
     }
 
     // Scope untuk status
