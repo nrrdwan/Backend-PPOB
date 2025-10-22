@@ -11,19 +11,27 @@ class BannerController extends Controller
 {
     public function index()
     {
-        $banners = Banner::where('is_active', true)->get(['id', 'title', 'image_url']);
+        $banners = \App\Models\Banner::where('is_active', true)->get(['id', 'title', 'image_url']);
 
-        $banners->transform(function ($banner) {
-            if ($banner->image_url && !str_contains($banner->image_url, 'http')) {
-                $banner->image_url = asset('storage/' . ltrim($banner->image_url, '/'));
-            }
+        $data = $banners->map(function ($banner) {
+            $path = str_replace(['public/', 'storage/'], '', $banner->image_url);
+            $path = ltrim($path, '/');
+            $fullUrl = config('app.url') . '/storage/' . $path;
 
-            \Log::info('✅ Banner transformed: ' . $banner->image_url);
+            \Log::info('🎯 Final full URL generated: ' . $fullUrl);
 
-            return $banner;
+            return [
+                'id' => $banner->id,
+                'title' => $banner->title,
+                'image_url' => $fullUrl,
+            ];
         });
 
-        return response()->json(['data' => $banners], 200);
+        return response()->json([
+            'success' => true,
+            'message' => 'List of active banners',
+            'data' => $data,
+        ]);
     }
 
     // Upload banner baru
