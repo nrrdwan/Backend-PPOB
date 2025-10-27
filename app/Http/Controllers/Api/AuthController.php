@@ -49,7 +49,7 @@ class AuthController extends Controller
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'phone' => $request->phone,
-                'role' => 'User Biasa',
+                'role' => 'user',
                 'is_active' => true,
                 'email_verified_at' => now(),
                 'kyc_status' => 'unverified',
