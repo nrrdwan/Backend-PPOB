@@ -6,19 +6,43 @@ use App\Http\Controllers\Controller;
 use App\Models\Banner;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class BannerController extends Controller
 {
     public function index()
     {
-        $banners = \App\Models\Banner::where('is_active', true)->get(['id', 'title', 'image_url']);
+        $banners = Banner::where('is_active', true)->get(['id', 'title', 'image_url']);
 
         $data = $banners->map(function ($banner) {
-            $path = str_replace(['public/', 'storage/'], '', $banner->image_url);
-            $path = ltrim($path, '/');
-            $fullUrl = config('app.url') . '/storage/' . $path;
+            // 🔥 DEBUGGING: Log nilai asli dari database
+            Log::info('📦 Banner dari DB:', [
+                'id' => $banner->id,
+                'title' => $banner->title,
+                'image_url_raw' => $banner->image_url
+            ]);
 
-            \Log::info('🎯 Final full URL generated: ' . $fullUrl);
+            // 🎯 LOGIC BARU: Deteksi apakah sudah full URL atau masih path
+            $imageUrl = $banner->image_url;
+            
+            // Jika sudah full URL (dimulai dengan http/https), pakai langsung
+            if (str_starts_with($imageUrl, 'http://') || str_starts_with($imageUrl, 'https://')) {
+                $fullUrl = $imageUrl;
+            } else {
+                // Jika masih path, convert ke full URL
+                // Hapus prefix 'public/' atau 'storage/' jika ada
+                $cleanPath = str_replace(['public/', 'storage/'], '', $imageUrl);
+                $cleanPath = ltrim($cleanPath, '/');
+                
+                // Pastikan path dimulai dengan 'banners/'
+                if (!str_starts_with($cleanPath, 'banners/')) {
+                    $cleanPath = 'banners/' . $cleanPath;
+                }
+                
+                $fullUrl = config('app.url') . '/storage/' . $cleanPath;
+            }
+
+            Log::info('🎯 Final full URL generated: ' . $fullUrl);
 
             return [
                 'id' => $banner->id,
@@ -26,6 +50,9 @@ class BannerController extends Controller
                 'image_url' => $fullUrl,
             ];
         });
+
+        // 🔥 Log response final
+        Log::info('📤 Response banners:', ['data' => $data->toArray()]);
 
         return response()->json([
             'success' => true,
@@ -44,14 +71,19 @@ class BannerController extends Controller
 
         // Simpan file ke storage lokal (public disk)
         $path = $request->file('banner')->store('banners', 'public');
-        $url = asset('storage/' . $path);
-
+        
+        // Simpan HANYA path relatif ke database (bukan full URL)
         $banner = Banner::create([
             'title' => $request->title,
-            'image_url' => $url,
+            'image_url' => $path, // Contoh: banners/abc123.jpg
         ]);
 
-        return response()->json(['data' => $banner, 'message' => 'Banner uploaded successfully'], 201);
+        Log::info('✅ Banner created:', ['id' => $banner->id, 'path' => $path]);
+
+        return response()->json([
+            'data' => $banner, 
+            'message' => 'Banner uploaded successfully'
+        ], 201);
     }
 
     // Hapus banner
@@ -63,10 +95,13 @@ class BannerController extends Controller
         }
 
         // Hapus file dari storage
-        $filePath = str_replace(asset('storage/'), '', $banner->image_url);
+        $filePath = str_replace(['public/', 'storage/', config('app.url') . '/storage/'], '', $banner->image_url);
         Storage::disk('public')->delete($filePath);
 
         $banner->delete();
+        
+        Log::info('🗑️ Banner deleted:', ['id' => $id]);
+        
         return response()->json(['message' => 'Banner deleted successfully'], 200);
     }
 }
