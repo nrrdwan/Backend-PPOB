@@ -22,7 +22,7 @@ class CheckIfAdmin
     private function checkIfUserIsAdmin($user)
     {
         // Only allow users with 'Admin' role
-        return $user && $user->role === 'Admin' && $user->is_active;
+        return $user && $user->role === 'admin' && $user->is_active;
     }
 
     /**
@@ -41,7 +41,7 @@ class CheckIfAdmin
         } else {
             // Add flash message for unauthorized access
             session()->flash('error', 'Akses Ditolak! Hanya role Admin yang dapat mengakses panel admin.');
-            return redirect()->guest(backpack_url('login'));
+            return redirect()->guest(route('backpack.auth.login'));
         }
     }
 
@@ -54,41 +54,31 @@ class CheckIfAdmin
      */
     public function handle($request, Closure $next)
     {
-        // Check if user is not authenticated
-        if (backpack_auth()->guest()) {
+        $guard = config('backpack.base.guard', 'web'); // gunakan web dulu
+        $user = auth($guard)->user();
+
+        Log::info('🟢 CheckIfAdmin middleware triggered', [
+            'guard' => $guard,
+            'user_id' => $user->id ?? null,
+            'email' => $user->email ?? null,
+            'role' => $user->role ?? '(null)',
+            'is_active' => $user->is_active ?? '(null)',
+        ]);
+
+        if (! $user) {
             return $this->respondToUnauthorizedRequest($request);
         }
 
-        $user = backpack_user();
-        
-        // Check if authenticated user is not Administrator
         if (! $this->checkIfUserIsAdmin($user)) {
-            // Log unauthorized access attempt
-            Log::warning('Unauthorized admin access attempt', [
-                'user_id' => $user->id ?? null,
-                'email' => $user->email ?? null,
-                'role' => $user->role ?? null,
-                'ip' => $request->ip(),
-                'url' => $request->fullUrl()
+            Log::warning('🚫 Access denied by CheckIfAdmin', [
+                'user_id' => $user->id,
+                'role' => $user->role,
+                'active' => $user->is_active,
             ]);
-            
-            // If user is authenticated but not admin, show specific message
-            if ($user) {
-                if ($request->ajax() || $request->wantsJson()) {
-                    return response()->json([
-                        'error' => 'Access Denied',
-                        'message' => "Your role '{$user->role}' is not authorized to access admin panel. Only Administrator role is allowed."
-                    ], 403);
-                } else {
-                    session()->flash('error', "Akses Ditolak! Role Anda '{$user->role}' tidak memiliki akses ke panel admin. Hanya role Administrator yang diizinkan.");
-                    
-                    // Logout user and redirect to login
-                    backpack_auth()->logout();
-                    return redirect()->guest(backpack_url('login'));
-                }
-            }
-            
-            return $this->respondToUnauthorizedRequest($request);
+
+            auth($guard)->logout();
+            session()->flash('error', "Akses Ditolak! Hanya admin aktif yang dapat mengakses panel admin.");
+            return redirect()->guest(backpack_url('login'));
         }
 
         return $next($request);

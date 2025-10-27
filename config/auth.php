@@ -47,6 +47,11 @@ return [
             'throttle:api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],
+
+        'backpack' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
     ],
 
     /*

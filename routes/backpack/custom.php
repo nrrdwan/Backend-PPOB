@@ -1,18 +1,14 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Auth\LoginController;
 
-// --------------------------
-// Custom Auth Routes
-// --------------------------
 Route::group([
     'prefix' => config('backpack.base.route_prefix', 'admin'),
     'middleware' => 'web',
-    'namespace' => 'App\Http\Controllers\Auth',
 ], function () {
-    // Override default login route with custom controller
-    Route::get('login', 'LoginController@showLoginForm')->name('backpack.auth.login');
-    Route::post('login', 'LoginController@login');
+    Route::get('login', [LoginController::class, 'showLoginForm'])->name('backpack.auth.login');
+    Route::post('login', [LoginController::class, 'login'])->name('backpack.auth.login.post');
 });
 
 // --------------------------
@@ -20,13 +16,13 @@ Route::group([
 // --------------------------
 // This route file is loaded automatically by Backpack\CRUD.
 // Routes you generate using Backpack\Generators will be placed here.
-
 Route::group([
     'prefix' => config('backpack.base.route_prefix', 'admin'),
-    'middleware' => array_merge(
-        (array) config('backpack.base.web_middleware', 'web'),
-        (array) config('backpack.base.middleware_key', 'admin')
-    ),
+    'middleware' => [
+        'web',
+        'auth:backpack',
+        'check_if_admin', // pastikan middleware ini sudah terdaftar di Kernel
+    ],
     'namespace' => 'App\Http\Controllers\Admin',
 ], function () { // custom admin routes
     // Dashboard route

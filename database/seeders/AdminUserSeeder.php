@@ -21,7 +21,7 @@ class AdminUserSeeder extends Seeder
             [
                 'name' => 'PPOB Administrator',
                 'password' => Hash::make('admin123'),
-                'role' => 'admin', // Updated role name to match roles table
+                'role' => 'admin',
                 'is_active' => true,
                 'email_verified_at' => now(),
             ]

@@ -22,23 +22,26 @@ class LoginController extends BackpackLoginController
     {
         $this->validateLogin($request);
 
-        // If the class is using the ThrottlesLogins trait, we can automatically throttle
-        // the login attempts for this application. We'll key this by the username and
-        // the IP address of the client making these requests into this application.
         if (method_exists($this, 'hasTooManyLoginAttempts') &&
             $this->hasTooManyLoginAttempts($request)) {
             $this->fireLockoutEvent($request);
-
             return $this->sendLockoutResponse($request);
         }
 
-        // Attempt to authenticate user
-        if ($this->attemptLogin($request)) {
-            $user = $this->guard()->user();
-            
-            // Check if user role is Admin
-            if ($user->role !== 'Admin') {
-                // Log the unauthorized attempt
+        $credentials = $request->only('email', 'password');
+
+        // 🔹 PAKAI GUARD WEB SECARA EKSPILISIT
+        if (Auth::guard('backpack')->attempt($credentials, $request->filled('remember'))) {
+            $request->session()->regenerate();
+
+            $user = Auth::guard('backpack')->user();
+
+            if (!$user->is_active) {
+                Auth::guard('backpack')->logout();
+                return back()->withErrors(['email' => 'Akun Anda belum aktif.']);
+            }
+
+            if ($user->role !== 'admin') {
                 Log::warning('Login attempt by non-Admin user', [
                     'user_id' => $user->id,
                     'email' => $user->email,
@@ -46,29 +49,26 @@ class LoginController extends BackpackLoginController
                     'ip' => $request->ip(),
                     'user_agent' => $request->userAgent()
                 ]);
-                
-                // Logout the user immediately
-                $this->guard()->logout();
-                
-                // Regenerate session to prevent fixation
-                $request->session()->regenerate();
-                
-                // Redirect to access denied page with role info
-                return redirect()->route('access.denied', ['role' => $user->role]);
-            }
-            
-            if ($request->hasSession()) {
-                $request->session()->put('auth.password_confirmed_at', time());
+
+                Auth::guard('backpack')->logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return back()->withErrors([
+                    'email' => "Akses ditolak. Role '{$user->role}' tidak diizinkan."
+                ]);
             }
 
-            return $this->sendLoginResponse($request);
+            Log::info('✅ Admin login successful', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'ip' => $request->ip()
+            ]);
+
+            return redirect()->intended(backpack_url('dashboard'));
         }
 
-        // If the login attempt was unsuccessful, we will increment the number of attempts
-        // to login and redirect the user back to the login form. Of course, when this
-        // user surpasses their maximum number of attempts they will get locked out.
         $this->incrementLoginAttempts($request);
-
         return $this->sendFailedLoginResponse($request);
     }
 
@@ -105,11 +105,7 @@ class LoginController extends BackpackLoginController
      */
     protected function guard()
     {
-        $guardName = backpack_guard_name();
-        if (!$guardName || is_array($guardName)) {
-            $guardName = 'web';
-        }
-        return Auth::guard($guardName);
+        return Auth::guard('backpack');
     }
 
     /**
