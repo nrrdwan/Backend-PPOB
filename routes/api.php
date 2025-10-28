@@ -8,24 +8,10 @@ use App\Http\Controllers\Api\{
     WalletController,
     MidtransController,
     NotificationController,
-    BannerController
+    BannerController,
+    TransactionHistoryController
 };
 
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-| Versi ini RESTful, efisien, dan tidak ada duplikasi endpoint.
-| Struktur dibagi jelas antara:
-| - Auth (publik dan private)
-| - PPOB (produk & transaksi)
-| - Wallet (saldo, topup, tarik)
-| - Notifications (FCM & notifikasi user)
-| - Midtrans (transaksi dan callback)
-|--------------------------------------------------------------------------
-*/
-
-// ✅ Public Routes (tanpa autentikasi)
 Route::prefix('auth')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login', [AuthController::class, 'login']);
@@ -48,11 +34,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('save-fcm-token', [AuthController::class, 'saveFcmToken']);
     });
 
+    Route::prefix('contacts')->group(function () {
+        Route::get('/', [SavedContactController::class, 'index']);
+        Route::post('/', [SavedContactController::class, 'store']);
+    });
+
     Route::get('user', fn(Request $r) => response()->json([
         'success' => true,
         'message' => 'Authenticated user data',
         'data'    => ['user' => $r->user()],
     ]));
+
+    Route::get('transactions', [TransactionHistoryController::class, 'index']);
+    Route::post('transactions', [TransactionHistoryController::class, 'store']);
 
     Route::prefix('ppob')->group(function () {
         Route::get('categories', [PPOBController::class, 'getCategories']);
