@@ -28,6 +28,7 @@ class User extends Authenticatable
         'password',
         'pin',
         'balance',
+        'profile_picture',
         'role',
         'is_active',
         'last_login_at',

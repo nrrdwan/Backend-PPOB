@@ -40,6 +40,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout-all', [AuthController::class, 'logoutAll']);
         Route::get('profile', [AuthController::class, 'profile']);
         Route::put('profile', [AuthController::class, 'updateProfile']);
+        Route::post('upload-profile-picture', [AuthController::class, 'uploadProfilePicture']);
         Route::post('pin', [AuthController::class, 'setPin']);
         Route::post('verify-pin', [AuthController::class, 'verifyPin']);
         Route::post('change-password', [AuthController::class, 'changePassword']);

@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 
 class AuthController extends Controller
@@ -300,6 +301,8 @@ class AuthController extends Controller
                         'full_name' => $user->full_name,
                         'email' => $user->email,
                         'phone' => $user->phone,
+                        'profile_picture' => $user->profile_picture, // ✅ Tambahkan ini
+                        'profile_picture_url' => $user->profile_picture, // ✅ Alias
                         'role' => $user->role,
                         'kyc_status' => $user->kyc_status,
                         'is_active' => $user->is_active,
@@ -693,22 +696,188 @@ class AuthController extends Controller
 
     public function updateProfile(Request $request)
     {
-        $user = $request->user();
+        try {
+            $user = $request->user();
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email'     => 'required|email|unique:users,email,' . $user->id,
-        ]);
+            $validated = $request->validate([
+                'name' => 'sometimes|string|max:255',
+                'email' => 'sometimes|email|unique:users,email,' . $user->id,
+                'phone' => 'sometimes|nullable|string|max:20',
+                'full_name' => 'sometimes|nullable|string|max:255',
+                'profile_picture' => 'sometimes|image|mimes:jpeg,png,jpg,gif|max:2048', // Max 2MB
+            ]);
 
-        $user->name = $validated['name'];
-        $user->email     = $validated['email'];
-        $user->save();
+            // Update fields biasa
+            if (isset($validated['name'])) {
+                $user->name = $validated['name'];
+            }
+            if (isset($validated['email'])) {
+                $user->email = $validated['email'];
+            }
+            if (isset($validated['phone'])) {
+                $user->phone = $validated['phone'];
+            }
+            if (isset($validated['full_name'])) {
+                $user->full_name = $validated['full_name'];
+            }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Profil berhasil diperbarui',
-            'data'    => ['user' => $user]
-        ], 200);
+            // Handle upload profile picture
+            if ($request->hasFile('profile_picture')) {
+                // Hapus foto lama jika ada
+                if ($user->profile_picture) {
+                    $oldPath = str_replace(asset('storage/'), '', $user->profile_picture);
+                    \Storage::disk('public')->delete($oldPath);
+                }
+
+                // Simpan foto baru
+                $file = $request->file('profile_picture');
+                $filename = 'profile_' . $user->id . '_' . time() . '.' . $file->getClientOriginalExtension();
+                $path = $file->storeAs('profile_pictures', $filename, 'public');
+                $user->profile_picture = asset('storage/' . $path);
+
+                Log::info('Profile picture uploaded', [
+                    'user_id' => $user->id,
+                    'filename' => $filename,
+                    'path' => $path
+                ]);
+            }
+
+            $user->save();
+
+            Log::info('Profile updated successfully', [
+                'user_id' => $user->id,
+                'updated_fields' => array_keys($validated)
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Profil berhasil diperbarui',
+                'data' => [
+                    'user' => [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'full_name' => $user->full_name,
+                        'email' => $user->email,
+                        'phone' => $user->phone,
+                        'profile_picture' => $user->profile_picture,
+                        'profile_picture_url' => $user->profile_picture, // Untuk compatibility
+                        'role' => $user->role,
+                        'kyc_status' => $user->kyc_status,
+                    ]
+                ]
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Update profile error', [
+                'error' => $e->getMessage(),
+                'user_id' => $request->user()->id ?? 'unknown',
+                'ip' => $request->ip()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal memperbarui profil',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Upload profile picture only
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function uploadProfilePicture(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            // Validasi
+            $request->validate([
+                'profile_picture' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+            ]);
+
+            Log::info('Profile picture upload attempt', [
+                'user_id' => $user->id,
+                'file_original_name' => $request->file('profile_picture')->getClientOriginalName(),
+                'file_size' => $request->file('profile_picture')->getSize()
+            ]);
+
+            // Hapus foto lama jika ada
+            if ($user->profile_picture) {
+                $oldPath = str_replace(asset('storage/'), '', $user->profile_picture);
+                if (\Storage::disk('public')->exists($oldPath)) {
+                    \Storage::disk('public')->delete($oldPath);
+                    Log::info('Old profile picture deleted', [
+                        'user_id' => $user->id,
+                        'old_path' => $oldPath
+                    ]);
+                }
+            }
+
+            // Simpan foto baru
+            $file = $request->file('profile_picture');
+            $filename = 'profile_' . $user->id . '_' . time() . '.' . $file->getClientOriginalExtension();
+            $path = $file->storeAs('profile_pictures', $filename, 'public');
+            $url = asset('storage/' . $path);
+
+            // Update database
+            $user->profile_picture = $url;
+            $user->save();
+
+            Log::info('Profile picture uploaded successfully', [
+                'user_id' => $user->id,
+                'filename' => $filename,
+                'url' => $url,
+                'path' => $path
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Foto profil berhasil diperbarui',
+                'data' => [
+                    'profile_picture_url' => $url,
+                    'user' => [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'email' => $user->email,
+                        'profile_picture' => $url,
+                    ]
+                ]
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::warning('Profile picture validation failed', [
+                'user_id' => $request->user()->id ?? 'unknown',
+                'errors' => $e->errors()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'File tidak valid. Pastikan format JPG/PNG dan ukuran max 2MB',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Upload profile picture error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'user_id' => $request->user()->id ?? 'unknown',
+                'ip' => $request->ip()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal upload foto profil',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
     }
 
     public function verifyPin(Request $request)
