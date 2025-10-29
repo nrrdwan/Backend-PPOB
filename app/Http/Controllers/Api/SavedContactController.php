@@ -30,7 +30,7 @@ class SavedContactController extends Controller
             'success' => true,
             'message' => 'Nomor berhasil disimpan ke daftar tersimpan',
             'data' => $contact,
-        ]);
+        ], 200, ['Content-Type' => 'application/json']);
     }
 
     public function index()

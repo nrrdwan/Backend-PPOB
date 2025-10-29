@@ -713,6 +713,79 @@ class WalletController extends Controller
         }
     }
 
+    public function deductBalance(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'amount' => 'required|numeric|min:0',
+                'transaction_id' => 'required|string',
+                'type' => 'required|string|in:pulsa,data,pln,pdam,game,emoney,other',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation error',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $user = Auth::user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ], 401);
+            }
+
+            $amount = (float) $request->amount;
+
+            // Validasi saldo cukup
+            if ($user->balance < $amount) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Saldo tidak mencukupi untuk melakukan transaksi'
+                ], 400);
+            }
+
+            DB::beginTransaction();
+
+            // Kurangi saldo user
+            $user->balance -= $amount;
+            $user->save();
+
+            DB::commit();
+
+            Log::info('Balance deducted successfully', [
+                'user_id' => $user->id,
+                'amount' => $amount,
+                'new_balance' => $user->balance,
+                'transaction_id' => $request->transaction_id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Saldo berhasil dikurangi',
+                'data' => [
+                    'previous_balance' => $user->balance + $amount,
+                    'deducted_amount' => $amount,
+                    'current_balance' => $user->balance,
+                    'formatted_balance' => $user->formatted_balance,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Deduct balance error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat mengurangi saldo',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
     /**
      * Get transaction description based on type and product
      */

@@ -9,7 +9,8 @@ use App\Http\Controllers\Api\{
     MidtransController,
     NotificationController,
     BannerController,
-    TransactionHistoryController
+    TransactionHistoryController,
+    SavedContactController
 };
 
 Route::prefix('auth')->group(function () {
@@ -68,6 +69,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('qr/generate', [WalletController::class, 'generateQrCode']);
         Route::get('qr/lookup', [WalletController::class, 'lookupQr']);
         Route::post('qr/transfer', [WalletController::class, 'transferViaQr']);
+        Route::post('deduct-balance', [WalletController::class, 'deductBalance']);
     });
 
     Route::apiResource('notifications', NotificationController::class)
