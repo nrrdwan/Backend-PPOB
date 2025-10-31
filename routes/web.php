@@ -11,3 +11,8 @@ Route::get('/access-denied', function () {
     $userRole = request()->query('role', 'Unknown');
     return view('auth.access-denied', compact('userRole'));
 })->name('access.denied');
+
+// ✅ Redirect ke Backpack login
+Route::get('/login', function () {
+    return redirect(backpack_url('login'));
+})->name('login');
