@@ -18,6 +18,8 @@ Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
     Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
     Route::post('reset-password', [AuthController::class, 'resetPassword']);
+    Route::post('forgot-pin', [AuthController::class, 'forgotPin']);
+    Route::post('reset-pin', [AuthController::class, 'resetPin']);
 });
 
 // ✅ Protected Routes (butuh token Sanctum)
@@ -33,6 +35,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('change-password', [AuthController::class, 'changePassword']);
         Route::post('update-fcm-token', [AuthController::class, 'updateFcmToken']);
         Route::post('save-fcm-token', [AuthController::class, 'saveFcmToken']);
+        Route::post('change-pin', [AuthController::class, 'changePin']);
+        Route::get('devices', [\App\Http\Controllers\Api\DeviceSessionController::class, 'index']);
+        Route::post('devices/terminate-all', [\App\Http\Controllers\Api\DeviceSessionController::class, 'destroyAll']);
+        Route::delete('devices/{id}', [\App\Http\Controllers\Api\DeviceSessionController::class, 'destroy']);
     });
 
     Route::prefix('contacts')->group(function () {

@@ -25,7 +25,6 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         try {
-            // Validasi input
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:255',
                 'email' => 'required|string|email|max:255|unique:users',
@@ -43,7 +42,6 @@ class AuthController extends Controller
                 ], 422);
             }
 
-            // Buat user baru dengan role default 'User Biasa'
             $user = User::create([
                 'name' => $request->name,
                 'full_name' => $request->full_name ?? $request->name,
@@ -109,11 +107,13 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         try {
-            // Validasi input
             $validator = Validator::make($request->all(), [
                 'email' => 'required|string|email',
                 'password' => 'required|string',
-                'device_name' => 'nullable|string|max:255'
+                'device_name' => 'nullable|string|max:255',
+                'os_version' => 'nullable|string|max:100',
+                'latitude' => 'nullable|numeric',
+                'longitude' => 'nullable|numeric',
             ]);
 
             if ($validator->fails()) {
@@ -124,7 +124,6 @@ class AuthController extends Controller
                 ], 422);
             }
 
-            // Cek kredensial
             if (!Auth::attempt($request->only('email', 'password'))) {
                 Log::warning('Failed login attempt via API', [
                     'email' => $request->email,
@@ -140,7 +139,6 @@ class AuthController extends Controller
 
             $user = Auth::user();
 
-            // Cek apakah user aktif
             if (!$user->is_active) {
                 Auth::logout();
                 return response()->json([
@@ -149,23 +147,61 @@ class AuthController extends Controller
                 ], 403);
             }
 
-            // Update last login
             /** @var \App\Models\User $user */
-            $user = Auth::user();
             $user->update(['last_login_at' => now()]);
 
-
-            // Buat token dengan device name
             $deviceName = $request->device_name ?? 'mobile-app';
-            $token = $user->createToken($deviceName)->plainTextToken;
+            $tokenModel = $user->createToken($deviceName);
+            $token = $tokenModel->plainTextToken;
+            $tokenId = $tokenModel->accessToken->id;
 
-            // Log successful login
+            // ✅ TRACK DEVICE SESSION - PERBAIKAN DI SINI!
+            $userAgent = $request->userAgent() ?? 'Unknown';
+            
+            try {
+                $deviceSession = \App\Models\DeviceSession::updateOrCreate(
+                    [
+                        'user_id' => $user->id,
+                        'token_id' => (string)$tokenId, // Cast ke string untuk matching
+                    ],
+                    [
+                        'device_name' => $deviceName,
+                        'device_type' => \App\Models\DeviceSession::parseDeviceType($userAgent),
+                        'os_version' => $request->os_version ?? 'Unknown',
+                        'user_agent' => $userAgent,
+                        'browser' => \App\Models\DeviceSession::parseBrowser($userAgent),
+                        'ip_address' => $request->ip(),
+                        'location' => $this->getLocationFromIP($request->ip()),
+                        'latitude' => $request->latitude,
+                        'longitude' => $request->longitude,
+                        'last_active_at' => now(),
+                        'is_current' => true,
+                    ]
+                );
+
+                Log::info('✅ Device session created/updated', [
+                    'user_id' => $user->id,
+                    'token_id' => $tokenId,
+                    'device_session_id' => $deviceSession->id,
+                    'device_name' => $deviceName,
+                    'user_agent' => $userAgent,
+                ]);
+            } catch (\Exception $e) {
+                Log::error('❌ Failed to create device session', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                    'user_id' => $user->id,
+                    'token_id' => $tokenId,
+                ]);
+            }
+
             Log::info('User logged in via API', [
                 'user_id' => $user->id,
                 'email' => $user->email,
                 'device' => $deviceName,
+                'token_id' => $tokenId,
                 'ip' => $request->ip(),
-                'user_agent' => $request->userAgent()
+                'user_agent' => $userAgent
             ]);
 
             return response()->json([
@@ -190,6 +226,7 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             Log::error('Login error', [
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
                 'email' => $request->email ?? 'unknown',
                 'ip' => $request->ip()
             ]);
@@ -202,6 +239,43 @@ class AuthController extends Controller
         }
     }
 
+    private function getLocationFromIP($ip)
+    {
+        // Skip untuk localhost/private IP
+        if ($ip === '127.0.0.1' || 
+            str_starts_with($ip, '192.168.') || 
+            str_starts_with($ip, '10.') ||
+            str_starts_with($ip, '172.16.')) {
+            return 'Local Network';
+        }
+
+        try {
+            $response = \Http::timeout(3)->get("http://ip-api.com/json/{$ip}", [
+                'fields' => 'status,message,country,city,regionName'
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                if ($data['status'] === 'success') {
+                    $location = [];
+                    if (!empty($data['city'])) $location[] = $data['city'];
+                    if (!empty($data['regionName'])) $location[] = $data['regionName'];
+                    if (!empty($data['country'])) $location[] = $data['country'];
+                    
+                    return implode(', ', $location) ?: 'Unknown Location';
+                }
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to get location from IP', [
+                'ip' => $ip,
+                'error' => $e->getMessage()
+            ]);
+        }
+        
+        return 'Unknown Location';
+    }
+
     /**
      * Logout user (revoke current token)
      *
@@ -212,15 +286,21 @@ class AuthController extends Controller
     {
         try {
             $user = $request->user();
+            $tokenId = $request->user()->currentAccessToken()->id;
 
-            // Log logout
             Log::info('User logged out via API', [
                 'user_id' => $user->id,
                 'email' => $user->email,
+                'token_id' => $tokenId,
                 'ip' => $request->ip()
             ]);
 
-            // Revoke current access token
+            // ✅ Delete device session SEBELUM revoke token
+            \App\Models\DeviceSession::where('user_id', $user->id)
+                ->where('token_id', (string)$tokenId)
+                ->delete();
+
+            // Revoke current token
             $request->user()->currentAccessToken()->delete();
 
             return response()->json([
@@ -252,14 +332,12 @@ class AuthController extends Controller
         try {
             $user = $request->user();
 
-            // Log logout all
             Log::info('User logged out from all devices via API', [
                 'user_id' => $user->id,
                 'email' => $user->email,
                 'ip' => $request->ip()
             ]);
 
-            // Revoke all access tokens
             $user->tokens()->delete();
 
             return response()->json([
@@ -301,8 +379,8 @@ class AuthController extends Controller
                         'full_name' => $user->full_name,
                         'email' => $user->email,
                         'phone' => $user->phone,
-                        'profile_picture' => $user->profile_picture, // ✅ Tambahkan ini
-                        'profile_picture_url' => $user->profile_picture, // ✅ Alias
+                        'profile_picture' => $user->profile_picture,
+                        'profile_picture_url' => $user->profile_picture,
                         'role' => $user->role,
                         'kyc_status' => $user->kyc_status,
                         'is_active' => $user->is_active,
@@ -326,12 +404,188 @@ class AuthController extends Controller
         }
     }
 
-    /**
-     * Set or update user PIN
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
+    public function changePin(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            $request->validate([
+                'current_pin' => 'required|digits:6',
+                'new_pin'     => 'required|digits:6|confirmed',
+            ]);
+
+            if (empty($user->pin)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Akun Anda belum memiliki PIN. Silakan buat PIN terlebih dahulu.',
+                ], 400);
+            }
+            if (!\Illuminate\Support\Facades\Hash::check($request->current_pin, $user->pin)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'PIN lama yang Anda masukkan salah.',
+                ], 401);
+            }
+
+            if (\Illuminate\Support\Facades\Hash::check($request->new_pin, $user->pin)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'PIN baru tidak boleh sama dengan PIN lama.',
+                ], 422);
+            }
+
+            $user->pin = \Illuminate\Support\Facades\Hash::make($request->new_pin);
+            $user->save();
+
+            \Log::info('PIN berhasil diubah', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'timestamp' => now()->toDateTimeString(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'PIN berhasil diubah.',
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Input tidak valid.',
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            \Log::error('Gagal mengubah PIN', [
+                'error' => $e->getMessage(),
+                'user_id' => $request->user()->id ?? 'unknown',
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat mengubah PIN. Silakan coba lagi.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function forgotPin(Request $request)
+    {
+        try {
+            $request->validate([
+                'email' => 'required|email|exists:users,email'
+            ]);
+
+            $otp = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+            $expiresAt = now()->addMinutes(5);
+            $ttlSeconds = 300;
+
+            \App\Models\PasswordOtp::updateOrCreate(
+                ['email' => $request->email],
+                [
+                    'otp' => $otp,
+                    'expires_at' => $expiresAt,
+                ]
+            );
+
+            $user = \App\Models\User::where('email', $request->email)->first();
+            $name = $user?->full_name ?? $user?->name ?? 'Pengguna';
+
+            \Mail::send('emails.otp-reset-pin', [
+                'otp' => $otp,
+                'email' => $request->email,
+                'name' => $name,
+                'ttlSeconds' => $ttlSeconds,
+                'supportEmail' => config('mail.from.address'),
+                'supportUrl' => config('app.url') . '/help-center',
+            ], function ($message) use ($request) {
+                $message->to($request->email)
+                    ->subject('🔐 PPOB - Kode OTP Reset PIN');
+            });
+
+            \Log::info('OTP dikirim untuk reset PIN', [
+                'email' => $request->email,
+                'otp' => $otp,
+                'expires_at' => $expiresAt,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Kode OTP telah dikirim ke email Anda.',
+                'expires_in' => $ttlSeconds,
+                'otp_debug' => config('app.debug') ? $otp : null,
+            ], 200);
+        } catch (\Exception $e) {
+            \Log::error('Gagal mengirim OTP reset PIN', [
+                'error' => $e->getMessage(),
+                'email' => $request->email ?? 'unknown',
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengirim OTP. Silakan coba lagi.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    public function resetPin(Request $request)
+    {
+        try {
+            $request->validate([
+                'email' => 'required|email|exists:users,email',
+                'otp'   => 'required|string|size:4',
+                'pin'   => 'required|digits:6|confirmed',
+            ]);
+
+            $otpRecord = \App\Models\PasswordOtp::where('email', $request->email)
+                ->where('otp', $request->otp)
+                ->where('expires_at', '>', now())
+                ->first();
+
+            if (!$otpRecord) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kode OTP tidak valid atau sudah kedaluwarsa.',
+                ], 422);
+            }
+
+            $user = \App\Models\User::where('email', $request->email)->first();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Akun tidak ditemukan.',
+                ], 404);
+            }
+
+            $user->pin = \Illuminate\Support\Facades\Hash::make($request->pin);
+            $user->save();
+
+            $otpRecord->delete();
+
+            \Log::info('PIN berhasil direset', [
+                'email' => $request->email,
+                'timestamp' => now()->toDateTimeString(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'PIN berhasil direset. Silakan login menggunakan PIN baru Anda.',
+            ], 200);
+
+        } catch (\Exception $e) {
+            \Log::error('Gagal reset PIN', [
+                'error' => $e->getMessage(),
+                'email' => $request->email ?? 'unknown',
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat mereset PIN. Silakan coba lagi.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
     public function setPin(Request $request)
     {
         try {
@@ -383,7 +637,6 @@ class AuthController extends Controller
     public function forgotPassword(Request $request)
     {
         try {
-            // Validasi input
             $validator = Validator::make($request->all(), [
                 'email' => 'required|email|exists:users,email'
             ]);
@@ -396,23 +649,18 @@ class AuthController extends Controller
                 ], 422);
             }
 
-            // Generate 4 digit OTP
             $otp = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
 
-            // Set expiration time to 1 minute from now
             $expiresAt = Carbon::now()->addMinute();
 
-            // Delete any existing OTP for this email
             PasswordOtp::where('email', $request->email)->delete();
 
-            // Create new OTP record
             PasswordOtp::create([
                 'email' => $request->email,
                 'otp' => $otp,
                 'expires_at' => $expiresAt,
             ]);
 
-            // Send OTP via email using professional template
             Mail::send('emails.otp-reset-password', [
                 'otp' => $otp,
                 'email' => $request->email
@@ -421,10 +669,9 @@ class AuthController extends Controller
                     ->subject('🔐 PPOB - Kode OTP Reset Password');
             });
 
-            // Log successful OTP generation
             Log::info('OTP generated for password reset', [
                 'email' => $request->email,
-                'otp' => $otp, // For debugging purposes - remove in production
+                'otp' => $otp,
                 'expires_at' => $expiresAt,
                 'ip' => $request->ip()
             ]);
@@ -479,7 +726,6 @@ class AuthController extends Controller
                 ], 422);
             }
 
-            // Find valid OTP record
             $otpRecord = PasswordOtp::where('email', $request->email)
                 ->where('otp', $request->otp)
                 ->where('expires_at', '>', Carbon::now())
@@ -492,7 +738,6 @@ class AuthController extends Controller
                 ], 422);
             }
 
-            // Find user
             $user = User::where('email', $request->email)->first();
             if (!$user) {
                 return response()->json([
@@ -501,17 +746,13 @@ class AuthController extends Controller
                 ], 404);
             }
 
-            // Update password
             $user->password = Hash::make($request->password);
             $user->save();
 
-            // Delete used OTP
             $otpRecord->delete();
 
-            // Revoke all existing tokens for security
             $user->tokens()->delete();
 
-            // Log successful password reset
             Log::info('Password reset successful', [
                 'user_id' => $user->id,
                 'email' => $user->email,
@@ -549,7 +790,6 @@ class AuthController extends Controller
         try {
             $user = $request->user();
 
-            // Validasi input
             $validator = Validator::make($request->all(), [
                 'old_password' => 'required|string',
                 'new_password' => 'required|string|min:8|confirmed',
@@ -563,7 +803,6 @@ class AuthController extends Controller
                 ], 422);
             }
 
-            // Verifikasi password lama
             if (!Hash::check($request->old_password, $user->password)) {
                 return response()->json([
                     'success' => false,
@@ -571,7 +810,6 @@ class AuthController extends Controller
                 ], 400);
             }
 
-            // Pastikan password baru tidak sama dengan password lama
             if (Hash::check($request->new_password, $user->password)) {
                 return response()->json([
                     'success' => false,
@@ -579,11 +817,9 @@ class AuthController extends Controller
                 ], 400);
             }
 
-            // Update password
             $user->password = Hash::make($request->new_password);
             $user->save();
 
-            // Revoke semua token (paksa login ulang)
             $user->tokens()->delete();
 
             Log::info('User password changed via API', [
@@ -707,7 +943,6 @@ class AuthController extends Controller
                 'profile_picture' => 'sometimes|image|mimes:jpeg,png,jpg,gif|max:2048', // Max 2MB
             ]);
 
-            // Update fields biasa
             if (isset($validated['name'])) {
                 $user->name = $validated['name'];
             }
@@ -721,15 +956,12 @@ class AuthController extends Controller
                 $user->full_name = $validated['full_name'];
             }
 
-            // Handle upload profile picture
             if ($request->hasFile('profile_picture')) {
-                // Hapus foto lama jika ada
                 if ($user->profile_picture) {
                     $oldPath = str_replace(asset('storage/'), '', $user->profile_picture);
                     \Storage::disk('public')->delete($oldPath);
                 }
 
-                // Simpan foto baru
                 $file = $request->file('profile_picture');
                 $filename = 'profile_' . $user->id . '_' . time() . '.' . $file->getClientOriginalExtension();
                 $path = $file->storeAs('profile_pictures', $filename, 'public');
@@ -760,7 +992,7 @@ class AuthController extends Controller
                         'email' => $user->email,
                         'phone' => $user->phone,
                         'profile_picture' => $user->profile_picture,
-                        'profile_picture_url' => $user->profile_picture, // Untuk compatibility
+                        'profile_picture_url' => $user->profile_picture,
                         'role' => $user->role,
                         'kyc_status' => $user->kyc_status,
                     ]
@@ -799,7 +1031,6 @@ class AuthController extends Controller
         try {
             $user = $request->user();
 
-            // Validasi
             $request->validate([
                 'profile_picture' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
             ]);
@@ -810,7 +1041,6 @@ class AuthController extends Controller
                 'file_size' => $request->file('profile_picture')->getSize()
             ]);
 
-            // Hapus foto lama jika ada
             if ($user->profile_picture) {
                 $oldPath = str_replace(asset('storage/'), '', $user->profile_picture);
                 if (\Storage::disk('public')->exists($oldPath)) {
@@ -822,13 +1052,11 @@ class AuthController extends Controller
                 }
             }
 
-            // Simpan foto baru
             $file = $request->file('profile_picture');
             $filename = 'profile_' . $user->id . '_' . time() . '.' . $file->getClientOriginalExtension();
             $path = $file->storeAs('profile_pictures', $filename, 'public');
             $url = asset('storage/' . $path);
 
-            // Update database
             $user->profile_picture = $url;
             $user->save();
 
@@ -920,17 +1148,14 @@ class AuthController extends Controller
         try {
             $user = $request->user();
 
-            // Log the deletion attempt
             Log::warning('User account deletion initiated via API', [
                 'user_id' => $user->id,
                 'email' => $user->email,
                 'ip' => $request->ip()
             ]);
 
-            // Delete all associated tokens
             $user->tokens()->delete();
 
-            // Delete the user record
             $user->delete();
 
             Log::info('User account deleted successfully via API', [
