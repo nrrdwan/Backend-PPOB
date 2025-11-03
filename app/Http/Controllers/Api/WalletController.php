@@ -57,8 +57,8 @@ class WalletController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'deposit_id' => 'sometimes|integer',
-                'amount' => 'required|numeric|min:10000|max:10000000', // Min 10K, Max 10M
-                'payment_method' => 'required|string', // ✅ Terima semua payment method
+                'amount' => 'required|numeric|min:10000|max:10000000',
+                'payment_method' => 'required|string',
             ]);
 
             if ($validator->fails()) {
@@ -80,11 +80,8 @@ class WalletController extends Controller
             $amount = (float) $request->amount;
             $paymentMethod = $request->payment_method;
 
-            // ✅ Delegate ke MidtransController untuk membuat transaksi
-            // kita buat Request baru dan ikutkan payment_method agar Midtrans tahu metode spesifik
             $user = $request->user();
 
-            // Forward ke CoreMidtransController
             $coreController = new CoreMidtransController();
             return $coreController->createTransaction($request);
 
@@ -130,7 +127,6 @@ class WalletController extends Controller
             $method = strtoupper($request->method_id);
             $phoneNumber = $request->phone_number;
 
-            // ✅ Validasi saldo cukup (tapi jangan kurangi dulu)
             if ($user->balance < $amount) {
                 return response()->json([
                     'success' => false,
@@ -138,7 +134,6 @@ class WalletController extends Controller
                 ], 400);
             }
 
-            // ✅ Buat kode unik
             $timestamp = now()->format('ymd');
             $uniqueCode = sprintf(
                 'MODI-%s-%05d-%s-%d',
@@ -148,10 +143,8 @@ class WalletController extends Controller
                 $amount
             );
 
-            // ✅ Generate transaction ID
             $transactionId = 'TRX' . now()->format('Ymd') . 'TRI' . strtoupper(Str::random(4));
 
-            // ✅ Simpan transaksi dengan status 'pending' (saldo belum berkurang)
             $transaction = Transaction::create([
                 'user_id' => $user->id,
                 'transaction_id' => $transactionId,
@@ -175,14 +168,11 @@ class WalletController extends Controller
                 'status' => 'pending'
             ]);
 
-            // ✅ Tentukan durasi kadaluarsa (sinkron ke frontend)
             $expirySeconds = 60;
 
-            // ✅ Kirim ke queue untuk auto-komplet setelah durasi ini
             \App\Jobs\AutoCompleteWithdraw::dispatch($transaction->id)
                 ->delay(now()->addSeconds($expirySeconds));
 
-            // ✅ Sertakan 'expires_in' supaya Flutter bisa tahu countdown-nya
             return response()->json([
                 'success' => true,
                 'message' => 'Kode penarikan berhasil dibuat',
@@ -196,8 +186,8 @@ class WalletController extends Controller
                     'status' => 'pending',
                     'current_balance' => $user->balance,
                     'formatted_balance' => $user->formatted_balance,
-                    'expires_in' => $expirySeconds, // ⏱️ Tambahan ini untuk sinkronisasi waktu
-                    'expires_at' => now()->addSeconds($expirySeconds)->toISOString(), // bonus: waktu pasti kadaluarsa
+                    'expires_in' => $expirySeconds,
+                    'expires_at' => now()->addSeconds($expirySeconds)->toISOString(),
                 ]
             ]);
 
@@ -271,7 +261,6 @@ class WalletController extends Controller
                 ], 400);
             }
 
-            // ✅ Validasi saldo cukup
             if ($user->balance < $amount) {
                 return response()->json([
                     'success' => false,
@@ -281,11 +270,9 @@ class WalletController extends Controller
 
             DB::beginTransaction();
 
-            // ✅ Kurangi saldo user
             $user->balance -= $amount;
             $user->save();
 
-            // ✅ Update transaksi jadi success
             $transaction->update([
                 'status' => 'success',
                 'notes' => "Tarik tunai melalui {$metadata['method']}",
@@ -338,7 +325,7 @@ class WalletController extends Controller
                 ], 401);
             }
 
-            $expiresIn = $request->input('expires_in', 300); // default 5 menit
+            $expiresIn = $request->input('expires_in', 300);
             $expiresAt = Carbon::now()->addSeconds($expiresIn);
             $nonce = Str::uuid()->toString();
 
@@ -493,16 +480,12 @@ class WalletController extends Controller
 
             DB::beginTransaction();
 
-            // Kurangi saldo pengirim
             $sender->decrement('balance', $amount);
 
-            // Tambah saldo penerima
             $recipient->increment('balance', $amount);
 
-            // Tandai token sudah digunakan
             $record->update(['used' => true, 'used_at' => now()]);
 
-            // Catat transaksi
             Transaction::create([
                 'from_user_id' => $sender->id,
                 'to_user_id' => $recipient->id,
@@ -565,7 +548,6 @@ class WalletController extends Controller
                                ->with(['product'])
                                ->recent();
 
-            // Filter by type if specified
             $type = $request->type ?? 'all';
             if ($type === 'topup') {
                 $query->where('type', 'topup');
@@ -576,7 +558,6 @@ class WalletController extends Controller
             $limit = $request->limit ?? 20;
             $transactions = $query->paginate($limit);
 
-            // Format transactions for response
             $formattedTransactions = $transactions->map(function ($transaction) {
                 return [
                     'id' => $transaction->id,
@@ -671,7 +652,7 @@ class WalletController extends Controller
             $transaction = Transaction::create([
                 'transaction_id' => $uniqueCode,
                 'user_id' => $user->id,
-                'type' => 'other', // withdraw belum termasuk enum, jadi pakai "other"
+                'type' => 'other',
                 'amount' => $amount,
                 'admin_fee' => 0,
                 'total_amount' => $amount,
@@ -740,7 +721,6 @@ class WalletController extends Controller
 
             $amount = (float) $request->amount;
 
-            // Validasi saldo cukup
             if ($user->balance < $amount) {
                 return response()->json([
                     'success' => false,
@@ -750,7 +730,6 @@ class WalletController extends Controller
 
             DB::beginTransaction();
 
-            // Kurangi saldo user
             $user->balance -= $amount;
             $user->save();
 

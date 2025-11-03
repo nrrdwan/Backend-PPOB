@@ -32,11 +32,9 @@ class MidtransController extends Controller
         }
 
         try {
-            // Get real status from Midtrans
             $midtransData = $this->midtransService->getStatus($transactionId);
             $paymentDetails = $this->midtransService->extractPaymentDetails($midtransData);
-            
-            // Determine payment type for Flutter routing
+
             $paymentType = $this->mapToFlutterPaymentType($midtransData['payment_type'] ?? '', $midtransData);
 
             return response()->json([
@@ -82,7 +80,6 @@ class MidtransController extends Controller
         $adminFee = $this->calculateAdminFee($amount);
         $totalAmount = $amount + $adminFee;
 
-        // Create transaction record
         $transaction = Transaction::create([
             'transaction_id' => 'BANK-' . time() . '-' . $user->id . '-' . Str::random(6),
             'user_id' => $user->id,
@@ -94,7 +91,6 @@ class MidtransController extends Controller
             'channel' => 'bank_transfer|' . $bankType
         ]);
 
-        // Prepare transaction data for Midtrans
         $transactionData = [
             'order_id' => $transaction->transaction_id,
             'gross_amount' => $totalAmount,
@@ -120,11 +116,9 @@ class MidtransController extends Controller
         ];
 
         try {
-            // ✅ GUNAKAN CORE API BANK TRANSFER
             $midtransResponse = $this->midtransService->createBankTransfer($transactionData, $bankType);
             $paymentDetails = $this->midtransService->extractPaymentDetails($midtransResponse);
 
-            // Update transaction dengan data dari Midtrans
             $transaction->update([
                 'reference_id' => $midtransResponse['transaction_id'] ?? null,
                 'callback_data' => json_encode($midtransResponse)
@@ -177,10 +171,8 @@ class MidtransController extends Controller
         $adminFee = $this->calculateAdminFee($amount);
         $totalAmount = $amount + $adminFee;
 
-        // Generate kode unik (misal DEP + 6 digit acak)
         $transferCode = 'DEP' . strtoupper(Str::random(6));
 
-        // Rekening tujuan tetap (ubah sesuai rekening perusahaan kamu)
         $accountNumber = '010001002976560';
         $accountName   = 'PT MODI TEKNO SOLUSINDO';
         $bankName      = 'BANK BCA';
@@ -247,16 +239,14 @@ class MidtransController extends Controller
             'linkaja' => 'ewallet',
             'qris' => 'qris',
             'bank_transfer' => 'va',
-            'echannel' => 'bank_transfer', // Mandiri bill
+            'echannel' => 'bank_transfer',
             'cstore' => 'counter'
         ];
 
         $type = $typeMap[$midtransPaymentType] ?? 'bank_transfer';
         
-        // For bank transfer, check specific bank
         if ($type === 'va' && isset($midtransData['va_numbers'][0]['bank'])) {
             $bank = $midtransData['va_numbers'][0]['bank'];
-            // You can add specific logic for different VA banks here
         }
 
         return $type;
@@ -290,7 +280,6 @@ class MidtransController extends Controller
             return $this->createMockTransaction($user, $amount, $adminFee, $totalAmount);
         }
 
-        // Save requested payment method so we know what user selected
         $requestedPaymentMethod = $request->payment_method ?? null;
 
         $transaction = Transaction::create([
@@ -301,7 +290,6 @@ class MidtransController extends Controller
             'admin_fee' => $adminFee,
             'total_amount' => $totalAmount,
             'status' => 'pending',
-            // store requested payment method appended to channel for traceability
             'channel' => $requestedPaymentMethod ? 'midtrans|' . $requestedPaymentMethod : 'midtrans'
         ]);
 
@@ -340,18 +328,15 @@ class MidtransController extends Controller
             ]
         ];
 
-        // 🔹 Override enabled_payments kalau ada payment_method spesifik (dari frontend)
         if ($requestedPaymentMethod) {
             $normalized = strtolower(str_replace(' ', '_', $requestedPaymentMethod));
             $params['enabled_payments'] = [$normalized];
         }
 
         try {
-        // ✅ GUNAKAN SERVICE
         $snapToken = $this->midtransService->createSnapToken($params);
         $transaction->update(['reference_id' => $snapToken]);
 
-        // ✅ GUNAKAN SERVICE UNTUK FETCH STATUS
         $midtransStatus = $this->midtransService->getStatus($transaction->transaction_id);
         $paymentDetails = $this->midtransService->extractPaymentDetails($midtransStatus);
 
@@ -432,7 +417,6 @@ class MidtransController extends Controller
         }
 
         try {
-            // ✅ GUNAKAN SERVICE
             $midtransData = $this->midtransService->getStatus($transactionId);
             $paymentDetails = $this->midtransService->extractPaymentDetails($midtransData);
 
@@ -465,7 +449,6 @@ class MidtransController extends Controller
         $statusCode = $request->status_code ?? '200';
         $grossAmount = $request->gross_amount;
         
-        // ✅ GUNAKAN SERVER KEY DARI SERVICE ATAU CONFIG
         $serverKey = config('services.midtrans.server_key');
         $hash = hash('sha512', $orderId . $statusCode . $grossAmount . $serverKey);
 
@@ -526,7 +509,6 @@ class MidtransController extends Controller
                     'user_id' => $transaction->user_id,
                 ]);
 
-                // 🔔 Kirim notifikasi ke FCM + simpan ke database
                 try {
                     $user = $transaction->user;
                     if ($user && $user->fcm_token) {

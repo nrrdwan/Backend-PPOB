@@ -34,7 +34,7 @@ class CoreMidtransController extends Controller
 
         $request->validate([
             'amount'  => 'required|numeric|min:10000|max:10000000',
-            'payment_method'  => 'required|string', // VA, MANDIRI, EWALLET, QRIS, CSTORE
+            'payment_method'  => 'required|string',
             'bank'    => 'nullable|string',
             'wallet'  => 'nullable|string',
             'store'   => 'nullable|string',
@@ -54,7 +54,6 @@ class CoreMidtransController extends Controller
             return $this->createMockTransaction($user, $amount, $adminFee, $totalAmount);
         }
 
-        // Buat transaksi lokal
         $transaction = Transaction::create([
             'transaction_id' => $orderId,
             'user_id'        => $user->id,
@@ -66,7 +65,6 @@ class CoreMidtransController extends Controller
             'channel'        => 'midtrans_core|' . $request->payment_method
         ]);
 
-        // Default params
         $params = [
             "transaction_details" => [
                 "order_id" => $orderId,
@@ -93,16 +91,15 @@ class CoreMidtransController extends Controller
             ]
         ];
 
-        // Tentukan payment_type
         switch (strtoupper($request->payment_method)) {
-            case 'VA': // Virtual Account
+            case 'VA':
                 $params['payment_type'] = 'bank_transfer';
                 $params['bank_transfer'] = [
                     'bank' => strtolower($request->bank ?? 'bca')
                 ];
                 break;
 
-            case 'MANDIRI': // Mandiri Bill Payment
+            case 'MANDIRI':
                 $params['payment_type'] = 'echannel';
                 $params['echannel'] = [
                     "bill_info1" => "Top Up",
@@ -110,7 +107,7 @@ class CoreMidtransController extends Controller
                 ];
                 break;
 
-            case 'EWALLET': // Gopay, Dana, LinkAja, ShopeePay, Ovo
+            case 'EWALLET':
                 $wallet = strtolower($request->wallet ?? 'gopay');
                 $params['payment_type'] = $wallet;
                 $params[$wallet] = [
@@ -123,7 +120,7 @@ class CoreMidtransController extends Controller
                 $params['payment_type'] = 'qris';
                 break;
 
-            case 'CSTORE': // Convenience Store
+            case 'CSTORE':
                 $params['payment_type'] = 'cstore';
                 $params['cstore'] = [
                     "store" => strtolower($request->store ?? 'alfamart'),

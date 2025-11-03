@@ -26,7 +26,6 @@ class DeviceSessionController extends Controller
                 'current_token_id' => $currentTokenId
             ]);
 
-            // Get all active sessions
             $sessions = DeviceSession::where('user_id', $user->id)
                 ->orderBy('last_active_at', 'desc')
                 ->get()
@@ -87,7 +86,6 @@ class DeviceSessionController extends Controller
             $user = $request->user();
             $currentTokenId = (string)$request->user()->currentAccessToken()->id;
 
-            // Find the session
             $session = DeviceSession::where('user_id', $user->id)
                 ->where('id', $id)
                 ->first();
@@ -99,7 +97,6 @@ class DeviceSessionController extends Controller
                 ], 404);
             }
 
-            // Prevent terminating current session
             if ($session->token_id === (string)$currentTokenId) {
                 return response()->json([
                     'success' => false,
@@ -107,10 +104,8 @@ class DeviceSessionController extends Controller
                 ], 400);
             }
 
-            // Revoke the token
             $user->tokens()->where('id', $session->token_id)->delete();
 
-            // Delete the session record
             $session->delete();
 
             Log::info('Device session terminated', [
@@ -150,9 +145,9 @@ class DeviceSessionController extends Controller
     {
         try {
             $user = $request->user();
-            $currentTokenId = (string)$request->user()->currentAccessToken()->id; // ✅ Cast to string
+            $currentTokenId = (string)$request->user()->currentAccessToken()->id;
 
-            // Get token IDs to revoke (except current)
+            
             $tokenIds = DeviceSession::where('user_id', $user->id)
                 ->where('token_id', '!=', $currentTokenId)
                 ->pluck('token_id')
@@ -174,10 +169,8 @@ class DeviceSessionController extends Controller
                 'count' => $deletedCount
             ]);
 
-            // Revoke all tokens except current
             $user->tokens()->whereIn('id', $tokenIds)->delete();
 
-            // Delete session records
             DeviceSession::where('user_id', $user->id)
                 ->where('token_id', '!=', $currentTokenId)
                 ->delete();

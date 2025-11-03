@@ -19,10 +19,9 @@ class SavedContactController extends Controller
             $validated = $request->validate([
                 'phone_number' => 'required|string',
                 'provider' => 'required|string',
-                'name' => 'nullable|string', // ✅ Tambahkan field name
+                'name' => 'nullable|string',
             ]);
 
-            // ✅ Cek apakah kontak sudah ada
             $existingContact = SavedContact::where('user_id', Auth::id())
                 ->where('phone_number', $validated['phone_number'])
                 ->where('provider', $validated['provider'])
@@ -33,15 +32,14 @@ class SavedContactController extends Controller
                     'success' => false,
                     'message' => 'Kontak ini sudah tersimpan sebelumnya',
                     'data' => $existingContact,
-                ], 409); // 409 Conflict
+                ], 409);
             }
 
-            // ✅ Simpan kontak baru
             $contact = SavedContact::create([
                 'user_id' => Auth::id(),
                 'phone_number' => $validated['phone_number'],
                 'provider' => $validated['provider'],
-                'name' => $validated['name'] ?? null, // ✅ Simpan nama jika ada
+                'name' => $validated['name'] ?? null,
             ]);
 
             Log::info('Kontak berhasil disimpan', [
@@ -54,7 +52,7 @@ class SavedContactController extends Controller
                 'success' => true,
                 'message' => 'Kontak berhasil disimpan',
                 'data' => $contact,
-            ], 201); // 201 Created
+            ], 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -84,7 +82,7 @@ class SavedContactController extends Controller
     {
         try {
             $contacts = SavedContact::where('user_id', Auth::id())
-                ->orderBy('created_at', 'desc') // ✅ Urutkan dari yang terbaru
+                ->orderBy('created_at', 'desc')
                 ->get();
 
             return response()->json([
@@ -113,7 +111,6 @@ class SavedContactController extends Controller
     public function destroy(Request $request, $id)
     {
         try {
-            // ✅ Cari kontak milik user yang sedang login
             $contact = SavedContact::where('user_id', Auth::id())
                 ->where('id', $id)
                 ->first();
@@ -125,7 +122,6 @@ class SavedContactController extends Controller
                 ], 404);
             }
 
-            // ✅ Hapus kontak
             $contact->delete();
 
             Log::info('Kontak berhasil dihapus', [

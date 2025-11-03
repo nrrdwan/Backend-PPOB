@@ -446,12 +446,11 @@ class PPOBController extends Controller
      */
     private function processTransaction(Transaction $transaction)
     {
-        // Mark as processing
         $transaction->markAsProcessing();
 
         // Simulate processing delay and random success/failure
         // In real implementation, integrate with provider APIs here
-        $isSuccess = rand(1, 10) > 2; // 80% success rate for demo
+        $isSuccess = rand(1, 10) > 2;
 
         if ($isSuccess) {
             $providerResponse = [

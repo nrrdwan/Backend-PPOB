@@ -155,14 +155,13 @@ class AuthController extends Controller
             $token = $tokenModel->plainTextToken;
             $tokenId = $tokenModel->accessToken->id;
 
-            // ✅ TRACK DEVICE SESSION - PERBAIKAN DI SINI!
             $userAgent = $request->userAgent() ?? 'Unknown';
             
             try {
                 $deviceSession = \App\Models\DeviceSession::updateOrCreate(
                     [
                         'user_id' => $user->id,
-                        'token_id' => (string)$tokenId, // Cast ke string untuk matching
+                        'token_id' => (string)$tokenId,
                     ],
                     [
                         'device_name' => $deviceName,
@@ -241,7 +240,6 @@ class AuthController extends Controller
 
     private function getLocationFromIP($ip)
     {
-        // Skip untuk localhost/private IP
         if ($ip === '127.0.0.1' || 
             str_starts_with($ip, '192.168.') || 
             str_starts_with($ip, '10.') ||
@@ -295,12 +293,10 @@ class AuthController extends Controller
                 'ip' => $request->ip()
             ]);
 
-            // ✅ Delete device session SEBELUM revoke token
             \App\Models\DeviceSession::where('user_id', $user->id)
                 ->where('token_id', (string)$tokenId)
                 ->delete();
 
-            // Revoke current token
             $request->user()->currentAccessToken()->delete();
 
             return response()->json([
@@ -682,7 +678,6 @@ class AuthController extends Controller
                 'data' => [
                     'email' => $request->email,
                     'expires_in_seconds' => 60,
-                    // Remove this line in production for security:
                     'otp_for_testing' => config('app.debug') ? $otp : null
                 ]
             ], 200);
@@ -711,7 +706,6 @@ class AuthController extends Controller
     public function resetPassword(Request $request)
     {
         try {
-            // Validasi input
             $validator = Validator::make($request->all(), [
                 'email' => 'required|email|exists:users,email',
                 'otp' => 'required|string|size:4',
@@ -940,7 +934,7 @@ class AuthController extends Controller
                 'email' => 'sometimes|email|unique:users,email,' . $user->id,
                 'phone' => 'sometimes|nullable|string|max:20',
                 'full_name' => 'sometimes|nullable|string|max:255',
-                'profile_picture' => 'sometimes|image|mimes:jpeg,png,jpg,gif|max:2048', // Max 2MB
+                'profile_picture' => 'sometimes|image|mimes:jpeg,png,jpg,gif|max:2048',
             ]);
 
             if (isset($validated['name'])) {

@@ -14,7 +14,6 @@ class NotificationController extends Controller
     {
         $user = $request->user();
 
-        // Ambil notifikasi user
         $notifications = Notification::where('user_id', $user->id)
             ->orderBy('created_at', 'desc')
             ->get()
@@ -23,7 +22,7 @@ class NotificationController extends Controller
                     'id' => $notif->id,
                     'title' => $notif->title,
                     'description' => $notif->message,
-                    'timestamp' => $notif->created_at->diffForHumans(), // contoh: "5 menit yang lalu"
+                    'timestamp' => $notif->created_at->diffForHumans(),
                     'type' => $notif->type ?? 'today',
                     'is_read' => (bool) $notif->is_read,
                 ];

@@ -21,7 +21,6 @@ class ProfilePictureController extends Controller
             'profile_picture' => 'required|image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
-        // Hapus foto lama jika sudah ada
         $old = ProfilePicture::where('user_id', $user->id)->first();
         if ($old) {
             $oldPath = str_replace(asset('storage/'), '', $old->image_url);
@@ -29,17 +28,14 @@ class ProfilePictureController extends Controller
             $old->delete();
         }
 
-        // Simpan file baru ke storage/public/profile_pictures/
         $path = $request->file('profile_picture')->store('profile_pictures', 'public');
         $url = asset('storage/' . $path);
 
-        // Simpan ke tabel profile_pictures
         $profilePicture = ProfilePicture::create([
             'user_id' => $user->id,
             'image_url' => $url,
         ]);
 
-        // Opsional: update juga kolom profile_picture di tabel users
         $user->update(['profile_picture' => $url]);
 
         return response()->json([
@@ -67,7 +63,6 @@ class ProfilePictureController extends Controller
         Storage::disk('public')->delete($filePath);
         $profile->delete();
 
-        // Kosongkan kolom di tabel users juga
         $user->update(['profile_picture' => null]);
 
         return response()->json(['message' => 'Foto profil berhasil dihapus'], 200);

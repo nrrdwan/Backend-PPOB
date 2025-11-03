@@ -9,11 +9,10 @@ use App\Models\Transaction;
 
 class TransactionHistoryController extends Controller
 {
-    // 🔹 Menyimpan transaksi baru
     public function store(Request $request)
     {
         $request->validate([
-            'type' => 'required|string', // pulsa, transfer, ewallet, qris, dll
+            'type' => 'required|string',
             'amount' => 'required|numeric',
             'admin_fee' => 'nullable|numeric',
             'total_amount' => 'nullable|numeric',
@@ -42,7 +41,6 @@ class TransactionHistoryController extends Controller
         ]);
     }
 
-    // 🔹 Ambil daftar transaksi user
     public function index(Request $request)
     {
         $query = Transaction::where('user_id', Auth::id())->recent();
