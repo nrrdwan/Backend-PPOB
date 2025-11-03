@@ -70,14 +70,12 @@ class ProductCommission extends Model
                 return 0;
         }
 
-        // Hitung komisi berdasarkan tipe
         if ($commissionType === 'percent') {
             $calculatedCommission = ($amount * $commission) / 100;
         } else {
             $calculatedCommission = $commission;
         }
 
-        // Terapkan batas minimum dan maksimum
         if ($this->min_commission && $calculatedCommission < $this->min_commission) {
             $calculatedCommission = $this->min_commission;
         }

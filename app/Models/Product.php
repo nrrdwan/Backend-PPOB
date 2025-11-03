@@ -38,7 +38,6 @@ class Product extends Model
         return $this->hasMany(Transaction::class);
     }
 
-    // Scope untuk status
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
@@ -54,7 +53,6 @@ class Product extends Model
         return $query->where('provider', $provider);
     }
 
-    // Methods untuk business logic
     public function isAvailable()
     {
         if (!$this->is_active) {

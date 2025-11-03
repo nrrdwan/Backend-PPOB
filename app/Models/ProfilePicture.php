@@ -19,7 +19,6 @@ class ProfilePicture extends Model
     {
         parent::boot();
 
-        // Hapus file fisik saat record dihapus
         static::deleting(function ($profilePicture) {
             if ($profilePicture->image_url) {
                 $path = str_replace(asset('storage/'), '', $profilePicture->image_url);

@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Backpack\CRUD\app\Models\Traits\CrudTrait;
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -151,21 +150,15 @@ class User extends Authenticatable
      */
     public function canAccessAdminPanel(): bool
     {
-        // Check if user is active
         if (!$this->is_active) {
             return false;
         }
-
-        // Check if user has admin or operator role (backward compatibility)
         if (in_array($this->role, ['admin', 'operator'])) {
             return true;
         }
-
-        // Check if user has roles with admin access permission
         return $this->hasPermission('access-admin-panel');
     }
 
-    // Wallet/Balance methods
     public function hasBalance($amount)
     {
         return $this->balance >= $amount;

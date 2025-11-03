@@ -24,31 +24,26 @@ class Notification extends Model
         'updated_at' => 'datetime',
     ];
 
-    // 🔹 Relasi ke user
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    // 🔹 Scope: hanya notifikasi yang belum dibaca
     public function scopeUnread($query)
     {
         return $query->where('is_read', false);
     }
 
-    // 🔹 Scope: filter berdasarkan tipe (misal deposit, transaksi, promo)
     public function scopeType($query, $type)
     {
         return $query->where('type', $type);
     }
 
-    // 🔹 Accessor: format tanggal jadi lebih human-readable
     public function getCreatedAtFormattedAttribute()
     {
         return $this->created_at ? $this->created_at->diffForHumans() : null;
     }
 
-    // 🔹 Helper: tandai notifikasi sebagai dibaca
     public function markAsRead()
     {
         if (!$this->is_read) {
@@ -60,7 +55,6 @@ class Notification extends Model
         }
     }
 
-    // 🔹 Helper statis: buat + kirim FCM sekaligus (optional)
     public static function sendAndSave($user, $title, $message, $type = 'general', $data = [])
     {
         $notification = self::create([

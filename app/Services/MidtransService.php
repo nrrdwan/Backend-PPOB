@@ -50,11 +50,9 @@ class MidtransService
 
     public function createManualTransfer($amount, $deviceName = 'Unknown Device')
     {
-        // Generate unique transaction ID dan kode unik
         $transactionId = 'TF-' . strtoupper(uniqid());
         $uniqueCode = 'DEP' . random_int(100000, 999999);
 
-        // Simpan ke database (jika perlu, tergantung struktur tabel kamu)
         $transaction = \App\Models\Transaction::create([
             'transaction_id' => $transactionId,
             'amount' => $amount,
@@ -63,7 +61,6 @@ class MidtransService
             'provider_response' => json_encode([]),
         ]);
 
-        // Data rekening tujuan (bisa disesuaikan)
         $bankInfo = [
             'bank_name' => 'Bank BCA',
             'account_number' => '010001002976560',
@@ -85,7 +82,6 @@ class MidtransService
 
     public function createBankTransfer(array $transactionData, string $bankType): array
     {
-        // 🔹 Gunakan echannel khusus untuk Mandiri
         if ($bankType === 'mandiri') {
             $params = [
                 'payment_type' => 'echannel',
@@ -103,7 +99,6 @@ class MidtransService
 
             Log::info('🏦 [MidtransService] Creating Mandiri E-Channel', ['params' => $params]);
         } else {
-            // 🔹 Bank lain (BCA, BNI, BRI, Permata, etc)
             $params = [
                 'payment_type' => 'bank_transfer',
                 'transaction_details' => [
@@ -118,7 +113,7 @@ class MidtransService
             ];
 
             if (in_array($bankType, ['bca', 'bni', 'bri'])) {
-                $params['bank_transfer']['va_number'] = ''; // biarkan Midtrans generate otomatis
+                $params['bank_transfer']['va_number'] = '';
             }
         }
 
@@ -273,7 +268,7 @@ class MidtransService
                 $details['permata_va_number'] = $midtransData['permata_va_number'] ?? null;
                 break;
 
-            case 'echannel': // 🔹 Mandiri VA (bill payment)
+            case 'echannel':
                 $details['bill_key'] = $midtransData['echannel']['bill_key'] ?? null;
                 $details['biller_code'] = $midtransData['echannel']['biller_code'] ?? null;
                 break;
@@ -295,7 +290,6 @@ class MidtransService
             $details['instructions'] = $midtransData['instructions'];
         }
 
-        // 🔹 Log untuk debugging
         Log::info('🟢 [extractPaymentDetails] Parsed Payment Details:', $details);
 
         return $details;

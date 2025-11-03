@@ -26,11 +26,9 @@ class Banner extends Model
         $disk = "public";
         $destination_path = "banners";
 
-        // Jika value adalah UploadedFile, upload
         if (is_object($value) && method_exists($value, 'isValid')) {
             $this->uploadFileToDisk($value, $attribute_name, $disk, $destination_path);
         } else {
-            // Jika string biasa, simpan langsung
             $this->attributes[$attribute_name] = $value;
         }
     }

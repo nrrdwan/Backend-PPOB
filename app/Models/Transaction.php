@@ -37,7 +37,6 @@ class Transaction extends Model
         'total_amount' => 'decimal:2'
     ];
 
-    // Boot method untuk auto generate transaction_id
     protected static function boot()
     {
         parent::boot();
@@ -49,7 +48,6 @@ class Transaction extends Model
         });
     }
 
-    // Static method untuk generate transaction ID
     public static function generateTransactionId()
     {
         $prefix = 'TRX';
@@ -79,7 +77,6 @@ class Transaction extends Model
         return $this->belongsTo(User::class, 'to_user_id');
     }
 
-    // Scope untuk status
     public function scopeSuccess($query)
     {
         return $query->where('status', 'success');
@@ -110,7 +107,6 @@ class Transaction extends Model
         return $query->orderBy('created_at', 'desc');
     }
 
-    // Status checking methods
     public function isPending()
     {
         return $this->status === 'pending';
@@ -136,7 +132,6 @@ class Transaction extends Model
         return $this->status === 'cancelled';
     }
 
-    // Status update methods
     public function markAsProcessing()
     {
         $this->update(['status' => 'processing']);
@@ -160,7 +155,6 @@ class Transaction extends Model
         ]);
     }
 
-    // Accessor methods
     public function getFormattedAmountAttribute()
     {
         return number_format($this->amount, 0, ',', '.');
