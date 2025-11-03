@@ -18,13 +18,11 @@ class DashboardController extends Controller
             'Dashboard' => backpack_url('dashboard'),
         ];
         
-        // Statistik untuk dashboard PPOB
         $data['total_users'] = User::count();
         $data['active_users'] = User::where('created_at', '>=', now()->subDays(30))->count();
         $data['today_registrations'] = User::whereDate('created_at', today())->count();
         $data['this_month_registrations'] = User::whereMonth('created_at', now()->month)->count();
         
-        // Statistik produk dan transaksi
         $data['total_products'] = Product::count();
         $data['active_products'] = Product::active()->count();
         $data['total_transactions'] = Transaction::count();
@@ -32,12 +30,10 @@ class DashboardController extends Controller
         $data['success_transactions'] = Transaction::success()->count();
         $data['pending_transactions'] = Transaction::pending()->count();
         
-        // Revenue stats
         $data['total_revenue'] = Transaction::success()->sum('total_amount');
         $data['today_revenue'] = Transaction::success()->whereDate('created_at', today())->sum('total_amount');
         $data['this_month_revenue'] = Transaction::success()->whereMonth('created_at', now()->month)->sum('total_amount');
         
-        // Data untuk chart (6 bulan terakhir)
         $monthlyData = [];
         $monthlyLabels = [];
         
@@ -55,7 +51,6 @@ class DashboardController extends Controller
             'data' => $monthlyData
         ];
         
-        // Product stats by type
         $data['product_stats'] = [
             'pulsa' => Product::byType('pulsa')->active()->count(),
             'data' => Product::byType('data')->active()->count(),
@@ -65,7 +60,6 @@ class DashboardController extends Controller
             'other' => Product::byType('other')->active()->count(),
         ];
         
-        // Recent transactions for activity feed
         $data['recent_transactions'] = Transaction::with(['user', 'product'])
             ->latest()
             ->limit(5)

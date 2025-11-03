@@ -17,7 +17,6 @@ class AdminController extends Controller
             'Dashboard' => backpack_url('dashboard'),
         ];
         
-        // Statistik untuk dashboard PPOB
         $data['total_users'] = User::count();
         $data['active_users'] = User::where('created_at', '>=', now()->subDays(30))->count();
         $data['today_transactions'] = Transaction::whereDate('created_at', today())->count();
@@ -25,7 +24,6 @@ class AdminController extends Controller
                                                ->where('status', 'success')
                                                ->sum('total_amount');
         
-        // Wallet stats
         $data['total_balance'] = User::where('role', '!=', 'Administrator')->sum('balance');
         $data['total_topup'] = Transaction::where('type', 'topup')
                                         ->where('status', 'success')
@@ -34,17 +32,14 @@ class AdminController extends Controller
                                            ->where('status', 'success')
                                            ->sum('total_amount');
         
-        // Product stats
         $data['active_products'] = Product::where('is_active', true)->count();
         $data['total_transactions'] = Transaction::count();
         $data['total_revenue'] = Transaction::where('status', 'success')->sum('total_amount');
         $data['pending_transactions'] = Transaction::where('status', 'pending')->count();
         $data['success_transactions'] = Transaction::where('status', 'success')->count();
         
-        // Recent transactions
         $data['recent_transactions'] = Transaction::with('user', 'product')->latest()->limit(5)->get();
         
-        // Product stats by type
         $data['product_stats'] = [
             'pulsa' => Product::where('type', 'pulsa')->count(),
             'data' => Product::where('type', 'data')->count(),
@@ -54,7 +49,6 @@ class AdminController extends Controller
             'other' => Product::where('type', 'other')->count(),
         ];
         
-        // Data untuk chart (contoh data, nanti bisa disesuaikan dengan model transaksi)
         $data['monthly_stats'] = [
             'labels' => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
             'data' => [65, 59, 80, 81, 56, 55]

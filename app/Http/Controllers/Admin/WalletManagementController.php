@@ -12,7 +12,6 @@ class WalletManagementController extends Controller
 {
     public function index()
     {
-        // Get wallet statistics
         $totalUsers = User::where('role', '!=', 'Administrator')->count();
         $totalBalance = User::where('role', '!=', 'Administrator')->sum('balance');
         $totalTopUp = Transaction::where('type', 'topup')
@@ -21,21 +20,17 @@ class WalletManagementController extends Controller
         $totalSpending = Transaction::whereIn('type', ['pulsa', 'pln', 'pdam', 'game', 'emoney', 'other'])
                                   ->where('status', 'success')
                                   ->sum('total_amount');
-        
-        // Get recent transactions
         $recentTransactions = Transaction::with(['user', 'product'])
                                        ->orderBy('created_at', 'desc')
                                        ->limit(10)
                                        ->get();
-        
-        // Get top balance users
+
         $topBalanceUsers = User::where('role', '!=', 'Administrator')
                               ->where('balance', '>', 0)
                               ->orderBy('balance', 'desc')
                               ->limit(10)
                               ->get();
         
-        // Get monthly transaction stats
         $monthlyStats = Transaction::select(
                 DB::raw('TO_CHAR(created_at, \'YYYY-MM\') as month'),
                 DB::raw('COUNT(*) as total_transactions'),
@@ -87,10 +82,9 @@ class WalletManagementController extends Controller
                 $user->deductBalance($amount);
                 $transactionType = 'adjustment';
                 $notes = 'Admin deduction: ' . $request->notes;
-                $amount = -$amount; // Make it negative for deduction
+                $amount = -$amount;
             }
             
-            // Create transaction record
             Transaction::create([
                 'user_id' => $user->id,
                 'product_id' => null,

@@ -39,10 +39,8 @@ class ProductCommissionCrudController extends CrudController
      */
     protected function setupListOperation()
     {
-        // Load product relationship
         CRUD::addClause('with', 'product');
 
-        // Product column with custom display
         CRUD::addColumn([
             'name' => 'product_name',
             'label' => 'Produk',
@@ -63,7 +61,6 @@ class ProductCommissionCrudController extends CrudController
             }
         ]);
 
-        // Seller Commission
         CRUD::addColumn([
             'name' => 'seller_commission_display',
             'label' => 'Komisi Seller',
@@ -77,7 +74,6 @@ class ProductCommissionCrudController extends CrudController
             }
         ]);
 
-        // Reseller Commission
         CRUD::addColumn([
             'name' => 'reseller_commission_display',
             'label' => 'Komisi Reseller',
@@ -91,7 +87,6 @@ class ProductCommissionCrudController extends CrudController
             }
         ]);
 
-        // B2B Commission
         CRUD::addColumn([
             'name' => 'b2b_commission_display',
             'label' => 'Komisi B2B',
@@ -105,7 +100,6 @@ class ProductCommissionCrudController extends CrudController
             }
         ]);
 
-        // Status
         CRUD::addColumn([
             'name' => 'is_active',
             'label' => 'Status',
@@ -130,7 +124,6 @@ class ProductCommissionCrudController extends CrudController
     {
         CRUD::setValidation(ProductCommissionRequest::class);
 
-        // Product selection
         CRUD::addField([
             'name' => 'product_id',
             'label' => 'Produk',
@@ -148,7 +141,6 @@ class ProductCommissionCrudController extends CrudController
             }),
         ]);
 
-        // Seller Commission Section
         CRUD::addField([
             'name' => 'seller_section',
             'type' => 'custom_html',
@@ -176,7 +168,6 @@ class ProductCommissionCrudController extends CrudController
             'wrapper' => ['class' => 'form-group col-md-6'],
         ]);
 
-        // Reseller Commission Section
         CRUD::addField([
             'name' => 'reseller_section',
             'type' => 'custom_html',
@@ -204,7 +195,6 @@ class ProductCommissionCrudController extends CrudController
             'wrapper' => ['class' => 'form-group col-md-6'],
         ]);
 
-        // B2B Commission Section
         CRUD::addField([
             'name' => 'b2b_section',
             'type' => 'custom_html',
@@ -232,7 +222,6 @@ class ProductCommissionCrudController extends CrudController
             'wrapper' => ['class' => 'form-group col-md-6'],
         ]);
 
-        // Additional Settings
         CRUD::addField([
             'name' => 'additional_section',
             'type' => 'custom_html',

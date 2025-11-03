@@ -26,8 +26,6 @@ class TransactionCrudController extends CrudController
         CRUD::setModel(\App\Models\Transaction::class);
         CRUD::setRoute(config('backpack.base.route_prefix') . '/transaction');
         CRUD::setEntityNameStrings('transaksi', 'transaksi');
-        
-        // Set default order by created_at desc
         CRUD::orderBy('created_at', 'DESC');
     }
 
@@ -39,7 +37,6 @@ class TransactionCrudController extends CrudController
      */
     protected function setupListOperation()
     {
-        // Column 1: Tanggal & waktu
         CRUD::addColumn([
             'name' => 'created_at',
             'label' => 'Tanggal & Waktu',
@@ -49,15 +46,11 @@ class TransactionCrudController extends CrudController
             },
             'orderable' => true
         ]);
-        
-        // Column 2: Order ID (Transaction ID)
         CRUD::addColumn([
             'name' => 'transaction_id',
             'label' => 'Order ID',
             'type' => 'text'
         ]);
-        
-        // Column 3: Jenis transaksi
         CRUD::addColumn([
             'name' => 'type',
             'label' => 'Jenis Transaksi',
@@ -75,14 +68,11 @@ class TransactionCrudController extends CrudController
                 return $types[$entry->type] ?? 'Pembayaran';
             }
         ]);
-        
-        // Column 4: Channel (Payment Method)
         CRUD::addColumn([
             'name' => 'channel',
             'label' => 'Channel',
             'type' => 'closure',
             'function' => function($entry) {
-                // Default payment methods mapping
                 $methods = [
                     'dana' => 'DANA',
                     'ovo' => 'OVO',
@@ -99,8 +89,6 @@ class TransactionCrudController extends CrudController
                 return $methods[$entry->channel ?? 'dana'] ?? ($entry->channel ?? 'DANA');
             }
         ]);
-        
-        // Column 5: Status
         CRUD::addColumn([
             'name' => 'status',
             'label' => 'Status',
@@ -114,8 +102,7 @@ class TransactionCrudController extends CrudController
                     'cancelled' => 'Cancelled'
                 ];
                 $status = $statuses[$entry->status] ?? $entry->status;
-                
-                // Add color based on status
+
                 $color = '';
                 switch($entry->status) {
                     case 'success':
@@ -137,8 +124,6 @@ class TransactionCrudController extends CrudController
             },
             'escaped' => false
         ]);
-        
-        // Column 6: Nilai (Amount)
         CRUD::addColumn([
             'name' => 'total_amount',
             'label' => 'Nilai',
@@ -148,8 +133,6 @@ class TransactionCrudController extends CrudController
             },
             'orderable' => true
         ]);
-        
-        // Column 7: E-mail pelanggan
         CRUD::addColumn([
             'name' => 'user.email',
             'label' => 'E-mail Pelanggan',
@@ -160,7 +143,6 @@ class TransactionCrudController extends CrudController
                 }
                 
                 $email = $entry->user->email;
-                // Truncate email if too long (show first part + ... + domain)
                 if (strlen($email) > 20) {
                     $parts = explode('@', $email);
                     if (count($parts) == 2) {

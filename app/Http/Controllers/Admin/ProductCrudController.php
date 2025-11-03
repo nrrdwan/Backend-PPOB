@@ -39,7 +39,7 @@ class ProductCrudController extends CrudController
      */
     protected function setupListOperation()
     {
-        CRUD::setFromDb(); // set columns from db columns.
+        CRUD::setFromDb();
 
         /**
          * Columns can be defined using the fluent syntax:
@@ -56,7 +56,7 @@ class ProductCrudController extends CrudController
     protected function setupCreateOperation()
     {
         CRUD::setValidation(ProductRequest::class);
-        CRUD::setFromDb(); // set fields from db columns.
+        CRUD::setFromDb();
 
         /**
          * Fields can be defined using the fluent syntax:

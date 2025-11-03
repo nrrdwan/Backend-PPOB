@@ -80,14 +80,12 @@ class RoleCrudController extends CrudController
             ->type('boolean')
             ->default(1);
 
-        // Dapatkan permissions yang aktif
         $permissions = \App\Models\Permission::where('is_active', true)->get();
         $permissionOptions = [];
         foreach ($permissions as $permission) {
             $permissionOptions[$permission->id] = $permission->name . ' (' . $permission->description . ')';
         }
 
-        // Field permissions dengan custom view sederhana
         CRUD::field([
             'name' => 'permissions',
             'label' => 'Permissions',
@@ -115,34 +113,26 @@ class RoleCrudController extends CrudController
     {
         $this->crud->hasAccessOrFail('create');
 
-        // Execute the FormRequest authorization and validation
         $request = $this->crud->validateRequest();
 
-        // Handle permissions relationship
         $permissions = $request->input('permissions', []);
         
-        // Ensure permissions is an array
         if (!is_array($permissions)) {
             $permissions = [];
         }
         
-        // Remove permissions from request data to avoid mass assignment issues
         $requestData = $request->except('permissions');
 
-        // Create the role first
         $item = $this->crud->create($requestData);
 
-        // Then attach the permissions
         if (!empty($permissions)) {
             $item->permissions()->sync($permissions);
         }
 
         $this->data['entry'] = $this->crud->entry = $item;
 
-        // Show success message
         Alert::success(trans('backpack::crud.insert_success'))->flash();
 
-        // Save the redirect choice for next time
         $this->crud->setSaveAction();
 
         return $this->crud->performSaveAction($item->getKey());
@@ -155,32 +145,24 @@ class RoleCrudController extends CrudController
     {
         $this->crud->hasAccessOrFail('update');
 
-        // Execute the FormRequest authorization and validation
         $request = $this->crud->validateRequest();
 
-        // Handle permissions relationship
         $permissions = $request->input('permissions', []);
         
-        // Remove permissions from request data
         $requestData = $request->except('permissions');
 
-        // Get the ID from route
         $id = $this->crud->getCurrentEntryId();
         
-        // Update the role
         $item = $this->crud->update($id, $requestData);
 
-        // Sync the permissions
         if (is_array($permissions)) {
             $item->permissions()->sync($permissions);
         }
 
         $this->data['entry'] = $this->crud->entry = $item;
 
-        // Show success message
         Alert::success(trans('backpack::crud.update_success'))->flash();
 
-        // Save the redirect choice for next time
         $this->crud->setSaveAction();
 
         return $this->crud->performSaveAction($item->getKey());

@@ -61,9 +61,9 @@ class BannerCrudController extends CrudController
         CRUD::addField([
             'name'   => 'image_url',
             'label'  => 'Upload Gambar Banner',
-            'type'   => 'upload',   // ini penting supaya muncul tombol file upload
+            'type'   => 'upload',
             'upload' => true,
-            'disk'   => 'public',   // simpan ke storage/app/public
+            'disk'   => 'public',
         ]);
 
         CRUD::field('is_active')

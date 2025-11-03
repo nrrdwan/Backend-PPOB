@@ -45,8 +45,6 @@ class UserCrudController extends CrudController
     {
         CRUD::column('name')->label('Nama');
         CRUD::column('email')->label('Email');
-        
-        // Add balance column with custom formatting
         CRUD::addColumn([
             'name' => 'balance',
             'label' => 'Saldo',
@@ -57,8 +55,7 @@ class UserCrudController extends CrudController
             'orderable' => true,
             'searchLogic' => false
         ]);
-        
-        // Get roles from database dynamically
+
         $roles = \App\Models\Role::where('is_active', true)->pluck('name', 'name')->toArray();
         
         CRUD::column('role')->label('Role')->type('badge')
@@ -86,18 +83,14 @@ class UserCrudController extends CrudController
     protected function setupCreateOperation()
     {
         CRUD::setValidation(UserRequest::class);
-        
-        // Get roles from database dynamically
+
         $roles = \App\Models\Role::where('is_active', true)->pluck('name', 'name')->toArray();
         
-        // Set default role - use first available role if 'User Biasa' not found
         $defaultRole = array_key_exists('User Biasa', $roles) ? 'User Biasa' : array_key_first($roles);
         
         CRUD::field('name')->label('Nama')->type('text')->validationRules('required|min:2');
         CRUD::field('email')->label('Email')->type('email')->validationRules('required|email|unique:users,email');
         CRUD::field('password')->label('Password')->type('password')->validationRules('required|min:8');
-        
-        // Add balance field for admin to set initial balance
         CRUD::addField([
             'name' => 'balance',
             'label' => 'Saldo Awal',
@@ -126,8 +119,6 @@ class UserCrudController extends CrudController
      */
     public function store()
     {
-        // Continue with normal store process
-        // Password akan di-hash otomatis oleh model karena ada 'password' => 'hashed' di cast
         return $this->traitStore();
     }
 
@@ -139,14 +130,11 @@ class UserCrudController extends CrudController
      */
     protected function setupUpdateOperation()
     {
-        // Get roles from database dynamically
         $roles = \App\Models\Role::where('is_active', true)->pluck('name', 'name')->toArray();
         
         CRUD::field('name')->label('Nama')->type('text')->validationRules('required|min:2');
         CRUD::field('email')->label('Email')->type('email')->validationRules('required|email|unique:users,email,' . CRUD::getCurrentEntryId());
         CRUD::field('password')->label('Password (kosongkan jika tidak ingin mengubah)')->type('password')->validationRules('nullable|min:8');
-        
-        // Add balance field for admin to adjust user balance
         CRUD::addField([
             'name' => 'balance',
             'label' => 'Saldo',
@@ -175,13 +163,9 @@ class UserCrudController extends CrudController
     {
         $request = CRUD::getRequest();
         
-        // If password field is empty, remove it from request to keep current password
         if (empty($request->input('password'))) {
             $request->request->remove('password');
         }
-        // Jika password diisi, biarkan model cast yang handle hashing
-        
-        // Continue with normal update process using trait method
         return $this->traitUpdate();
     }
 }
