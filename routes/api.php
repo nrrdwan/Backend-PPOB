@@ -10,7 +10,8 @@ use App\Http\Controllers\Api\{
     NotificationController,
     BannerController,
     TransactionHistoryController,
-    SavedContactController
+    SavedContactController,
+    WhatsappController
 };
 
 Route::prefix('auth')->group(function () {
@@ -39,6 +40,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('devices', [\App\Http\Controllers\Api\DeviceSessionController::class, 'index']);
         Route::post('devices/terminate-all', [\App\Http\Controllers\Api\DeviceSessionController::class, 'destroyAll']);
         Route::delete('devices/{id}', [\App\Http\Controllers\Api\DeviceSessionController::class, 'destroy']);
+    });
+
+    Route::prefix('whatsapp')->group(function () {
+        Route::get('/group-link', [WhatsappController::class, 'getGroupLink']);
+        Route::get('/admin-contact', [WhatsappController::class, 'getAdminContact']);
     });
 
     Route::prefix('contacts')->group(function () {
