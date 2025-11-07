@@ -6,10 +6,6 @@ use App\Http\Requests\BannerRequest;
 use Backpack\CRUD\app\Http\Controllers\CrudController;
 use Backpack\CRUD\app\Library\CrudPanel\CrudPanelFacade as CRUD;
 
-/**
- * Class BannerCrudController
- * @package App\Http\Controllers\Admin
- */
 class BannerCrudController extends CrudController
 {
     use \Backpack\CRUD\app\Http\Controllers\Operations\ListOperation;
@@ -25,9 +21,6 @@ class BannerCrudController extends CrudController
         CRUD::setEntityNameStrings('Banner', 'Banners');
     }
 
-    /**
-     * Tampilkan daftar banner (dengan preview gambar)
-     */
     protected function setupListOperation()
     {
         CRUD::column('title')->label('Judul Banner');
@@ -36,46 +29,165 @@ class BannerCrudController extends CrudController
             'name' => 'image_url',
             'label' => 'Preview Banner',
             'type' => 'image',
-            'prefix' => 'storage/',
             'height' => '80px',
             'width'  => '160px',
+            'prefix' => 'storage/', // ✅ PASTIKAN PREEFIX BENAR
+        ]);
+
+        CRUD::column('description')
+            ->label('Deskripsi')
+            ->limit(50)
+            ->wrapper([
+                'element' => 'span',
+                'title' => function ($crud, $column, $entry, $related_key) {
+                    return $entry->description;
+                },
+            ]);
+
+        CRUD::column('promo_code')
+            ->label('Kode Promo')
+            ->type('text');
+
+        CRUD::addColumn([
+            'name' => 'valid_until',
+            'label' => 'Berlaku Sampai',
+            'type' => 'datetime',
+            'format' => 'DD MMMM YYYY HH:mm',
         ]);
 
         CRUD::column('is_active')
             ->type('boolean')
-            ->label('Aktif');
+            ->label('Aktif')
+            ->options([
+                0 => 'Tidak Aktif',
+                1 => 'Aktif'
+            ]);
     }
 
-    /**
-     * Form create banner baru (upload file ke storage)
-     */
     protected function setupCreateOperation()
     {
         CRUD::setValidation(BannerRequest::class);
 
-        CRUD::field('title')
-            ->label('Judul Banner')
-            ->type('text')
-            ->attributes(['placeholder' => 'Contoh: Promo Akhir Tahun']);
-
         CRUD::addField([
-            'name'   => 'image_url',
-            'label'  => 'Upload Gambar Banner',
-            'type'   => 'upload',
-            'upload' => true,
-            'disk'   => 'public',
+            'name' => 'title',
+            'label' => 'Judul Banner',
+            'type' => 'text',
+            'attributes' => [
+                'placeholder' => 'Contoh: Promo Akhir Tahun'
+            ],
+            'wrapper' => ['class' => 'form-group col-md-12'],
         ]);
 
-        CRUD::field('is_active')
-            ->type('checkbox')
-            ->label('Aktif');
+        CRUD::addField([
+            'name' => 'image_url',
+            'label' => 'Upload Gambar Banner',
+            'type' => 'upload',
+            'upload' => true,
+            'disk' => 'public', // ✅ DISK PUBLIC UNTUK LOCAL STORAGE
+            'attributes' => [
+                'accept' => 'image/*',
+            ],
+            'hint' => 'Format: JPEG, PNG, JPG, GIF | Maksimal: 2MB',
+            'wrapper' => ['class' => 'form-group col-md-12'],
+        ]);
+
+        CRUD::addField([
+            'name' => 'description',
+            'label' => 'Deskripsi Promo',
+            'type' => 'textarea',
+            'attributes' => [
+                'placeholder' => 'Deskripsi lengkap tentang promo...',
+                'rows' => 4,
+            ],
+            'wrapper' => ['class' => 'form-group col-md-12'],
+        ]);
+
+        CRUD::addField([
+            'name' => 'promo_code',
+            'label' => 'Kode Promo (Opsional)',
+            'type' => 'text',
+            'attributes' => [
+                'placeholder' => 'Contoh: PROMO50, DISKON30, dll.',
+            ],
+            'wrapper' => ['class' => 'form-group col-md-6'],
+        ]);
+
+        CRUD::addField([
+            'name' => 'valid_until',
+            'label' => 'Masa Berlaku (Opsional)',
+            'type' => 'datetime',
+            'attributes' => [
+                'placeholder' => 'Pilih tanggal kadaluarsa promo',
+            ],
+            'wrapper' => ['class' => 'form-group col-md-6'],
+        ]);
+
+        CRUD::addField([
+            'name' => 'terms_conditions',
+            'label' => 'Syarat & Ketentuan',
+            'type' => 'textarea',
+            'attributes' => [
+                'placeholder' => 'Masukkan syarat dan ketentuan promo (pisahkan dengan enter)...',
+                'rows' => 6,
+            ],
+            'hint' => 'Gunakan enter untuk memisahkan setiap poin syarat & ketentuan',
+            'wrapper' => ['class' => 'form-group col-md-12'],
+        ]);
+
+        CRUD::addField([
+            'name' => 'is_active',
+            'label' => 'Aktifkan Banner',
+            'type' => 'checkbox',
+            'default' => true,
+            'wrapper' => ['class' => 'form-group col-md-12'],
+        ]);
     }
 
-    /**
-     * Form edit/update banner
-     */
     protected function setupUpdateOperation()
     {
         $this->setupCreateOperation();
+    }
+
+    protected function setupShowOperation()
+    {
+        CRUD::column('title')->label('Judul Banner');
+
+        CRUD::addColumn([
+            'name' => 'image_url',
+            'label' => 'Gambar Banner',
+            'type' => 'image',
+            'height' => '200px',
+            'prefix' => 'storage/', // ✅ PASTIKAN PREEFIX BENAR
+        ]);
+
+        CRUD::column('description')
+            ->label('Deskripsi Promo')
+            ->type('textarea');
+
+        CRUD::column('promo_code')
+            ->label('Kode Promo');
+
+        CRUD::addColumn([
+            'name' => 'valid_until',
+            'label' => 'Berlaku Sampai',
+            'type' => 'datetime',
+            'format' => 'DD MMMM YYYY HH:mm',
+        ]);
+
+        CRUD::addColumn([
+            'name' => 'terms_conditions',
+            'label' => 'Syarat & Ketentuan',
+            'type' => 'textarea',
+            'escaped' => false,
+            'limit' => 1000,
+        ]);
+
+        CRUD::column('is_active')
+            ->type('boolean')
+            ->label('Status Aktif')
+            ->options([
+                0 => '<span style="color: red">Tidak Aktif</span>',
+                1 => '<span style="color: green">Aktif</span>'
+            ]);
     }
 }
