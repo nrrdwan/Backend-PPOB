@@ -56,6 +56,39 @@ Route::get('health', function () {
     ]);
 });
 
+// ✅ Test Banner Endpoint (Public)
+Route::get('test-banners', function () {
+    try {
+        $banners = \App\Models\Banner::active()
+            ->where(function($query) {
+                $query->whereNull('valid_until')
+                      ->orWhere('valid_until', '>', now());
+            })
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Test banner endpoint',
+            'banners_count' => $banners->count(),
+            'banners' => $banners->map(function($banner) {
+                return [
+                    'id' => $banner->id,
+                    'title' => $banner->title,
+                    'is_active' => $banner->is_active,
+                    'valid_until' => $banner->valid_until,
+                    'image_url' => $banner->image_url,
+                    'image_url_full' => $banner->image_url_full,
+                ];
+            })
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'error' => $e->getMessage()
+        ], 500);
+    }
+});
+
 // ✅ Protected Routes (butuh token Sanctum)
 Route::middleware('auth:sanctum')->group(function () {
     

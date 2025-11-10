@@ -14,11 +14,11 @@ class BannerController extends Controller
     public function index()
     {
         try {
+            Log::info('🔄 [BANNER API] Fetching active banners from database');
+
             $banners = Banner::active()
-                ->where(function($query) {
-                    $query->whereNull('valid_until')
-                          ->orWhere('valid_until', '>', now());
-                })
+                ->valid()
+                ->orderBy('created_at', 'desc')
                 ->get([
                     'id', 
                     'title', 
@@ -27,19 +27,31 @@ class BannerController extends Controller
                     'promo_code', 
                     'valid_until',
                     'terms_conditions',
-                    'is_active'
+                    'is_active',
+                    'created_at',
+                    'updated_at'
                 ]);
 
-            $data = $banners->map(function ($banner) {
-                Log::info('📦 Banner data:', [
+            Log::info('📦 [BANNER API] Database query result:', [
+                'count' => $banners->count(),
+                'banners' => $banners->pluck('title')->toArray(),
+                'active_status' => $banners->pluck('is_active')->toArray()
+            ]);
+
+            // Debug: Check each banner
+            foreach ($banners as $banner) {
+                Log::info('🔍 [BANNER DEBUG]', [
                     'id' => $banner->id,
                     'title' => $banner->title,
-                    'image_url_raw' => $banner->getRawOriginal('image_url'),
+                    'is_active' => $banner->is_active,
+                    'valid_until' => $banner->valid_until,
+                    'image_url' => $banner->getRawOriginal('image_url'),
                     'image_url_full' => $banner->image_url_full,
-                    'image_exists' => $banner->imageExists(),
-                    'physical_path' => $banner->getImagePhysicalPath()
+                    'image_exists' => $banner->imageExists()
                 ]);
+            }
 
+            $data = $banners->map(function ($banner) {
                 return [
                     'id' => $banner->id,
                     'title' => $banner->title,
@@ -49,23 +61,33 @@ class BannerController extends Controller
                     'terms_conditions' => $banner->terms_conditions,
                     'is_valid' => $banner->is_valid,
                     'image_url' => $banner->image_url_full,
+                    'created_at' => $banner->created_at->toISOString(),
+                    'updated_at' => $banner->updated_at->toISOString(),
                 ];
             });
 
-            Log::info('📤 Response banners:', ['count' => $data->count()]);
+            Log::info('📤 [BANNER API] Final API response:', [
+                'success' => true,
+                'count' => $data->count(),
+                'banner_titles' => $data->pluck('title')->toArray()
+            ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'List of active banners',
                 'data' => $data,
-            ]);
+                'count' => $data->count()
+            ], 200, [], JSON_PRETTY_PRINT);
 
         } catch (\Exception $e) {
-            Log::error('❌ Error fetching banners: ' . $e->getMessage());
+            Log::error('❌ [BANNER API] Error fetching banners: ' . $e->getMessage());
+            Log::error('❌ [BANNER API] Stack trace: ' . $e->getTraceAsString());
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch banners',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'data' => []
             ], 500);
         }
     }
@@ -73,14 +95,14 @@ class BannerController extends Controller
     public function show($id)
     {
         try {
+            Log::info("🔄 [BANNER API] Fetching banner detail for ID: {$id}");
+
             $banner = Banner::active()
-                ->where(function($query) {
-                    $query->whereNull('valid_until')
-                          ->orWhere('valid_until', '>', now());
-                })
+                ->valid()
                 ->find($id);
 
             if (!$banner) {
+                Log::warning("⚠️ [BANNER API] Banner not found or inactive: {$id}");
                 return response()->json([
                     'success' => false,
                     'message' => 'Banner not found or expired'
@@ -96,7 +118,11 @@ class BannerController extends Controller
                 'terms_conditions' => $banner->terms_conditions,
                 'is_valid' => $banner->is_valid,
                 'image_url' => $banner->image_url_full,
+                'created_at' => $banner->created_at->toISOString(),
+                'updated_at' => $banner->updated_at->toISOString(),
             ];
+
+            Log::info("✅ [BANNER API] Banner detail found:", ['banner_id' => $id]);
 
             return response()->json([
                 'success' => true,
@@ -105,7 +131,7 @@ class BannerController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('❌ Error fetching banner detail: ' . $e->getMessage());
+            Log::error("❌ [BANNER API] Error fetching banner detail {$id}: " . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch banner detail',
@@ -136,7 +162,7 @@ class BannerController extends Controller
         try {
             $path = $request->file('banner')->store('banners', 'public');
             
-            Log::info('📁 File stored:', [
+            Log::info('📁 [BANNER API] File stored:', [
                 'original_name' => $request->file('banner')->getClientOriginalName(),
                 'stored_path' => $path,
                 'full_disk_path' => Storage::disk('public')->path($path)
@@ -152,7 +178,7 @@ class BannerController extends Controller
                 'is_active' => true,
             ]);
 
-            Log::info('✅ Banner created:', [
+            Log::info('✅ [BANNER API] Banner created:', [
                 'id' => $banner->id, 
                 'path' => $path,
                 'full_url' => $banner->image_url_full
@@ -174,7 +200,7 @@ class BannerController extends Controller
             ], 201);
 
         } catch (\Exception $e) {
-            Log::error('❌ Error creating banner: ' . $e->getMessage());
+            Log::error('❌ [BANNER API] Error creating banner: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create banner',
@@ -226,18 +252,18 @@ class BannerController extends Controller
                 $oldImagePath = $banner->getRawOriginal('image_url');
                 if ($oldImagePath && Storage::disk('public')->exists($oldImagePath)) {
                     Storage::disk('public')->delete($oldImagePath);
-                    Log::info('🗑️ Old image deleted:', ['path' => $oldImagePath]);
+                    Log::info('🗑️ [BANNER API] Old image deleted:', ['path' => $oldImagePath]);
                 }
 
                 // Upload file baru
                 $path = $request->file('banner')->store('banners', 'public');
                 $updateData['image_url'] = $path;
-                Log::info('📁 New file stored:', ['path' => $path]);
+                Log::info('📁 [BANNER API] New file stored:', ['path' => $path]);
             }
 
             $banner->update($updateData);
 
-            Log::info('✏️ Banner updated:', [
+            Log::info('✏️ [BANNER API] Banner updated:', [
                 'id' => $banner->id,
                 'new_image_url' => $banner->image_url_full
             ]);
@@ -258,7 +284,7 @@ class BannerController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('❌ Error updating banner: ' . $e->getMessage());
+            Log::error('❌ [BANNER API] Error updating banner: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update banner',
@@ -282,12 +308,12 @@ class BannerController extends Controller
             $imagePath = $banner->getRawOriginal('image_url');
             if ($imagePath && Storage::disk('public')->exists($imagePath)) {
                 Storage::disk('public')->delete($imagePath);
-                Log::info('🗑️ Banner image deleted:', ['path' => $imagePath]);
+                Log::info('🗑️ [BANNER API] Banner image deleted:', ['path' => $imagePath]);
             }
 
             $banner->delete();
             
-            Log::info('🗑️ Banner deleted:', ['id' => $id]);
+            Log::info('🗑️ [BANNER API] Banner deleted:', ['id' => $id]);
             
             return response()->json([
                 'success' => true,
@@ -295,11 +321,66 @@ class BannerController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('❌ Error deleting banner: ' . $e->getMessage());
+            Log::error('❌ [BANNER API] Error deleting banner: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete banner',
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get all banners for admin (including inactive)
+     */
+    public function getAllBanners()
+    {
+        try {
+            $banners = Banner::orderBy('created_at', 'desc')->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $banners,
+                'count' => $banners->count()
+            ]);
+        } catch (\Exception $e) {
+            Log::error('❌ [BANNER API] Error getting all banners: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to get banners'
+            ], 500);
+        }
+    }
+
+    /**
+     * Toggle banner status
+     */
+    public function toggleStatus($id)
+    {
+        try {
+            $banner = Banner::find($id);
+            if (!$banner) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Banner not found'
+                ], 404);
+            }
+
+            $banner->update(['is_active' => !$banner->is_active]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Banner status updated',
+                'data' => [
+                    'id' => $banner->id,
+                    'is_active' => $banner->is_active
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('❌ [BANNER API] Error toggling banner status: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to toggle banner status'
             ], 500);
         }
     }
