@@ -12,7 +12,8 @@ use App\Http\Controllers\Api\{
     TransactionHistoryController,
     SavedContactController,
     WhatsappController,
-    DeviceSessionController
+    DeviceSessionController,
+    ProductController // ✅ TAMBAHKAN INI
 };
 
 /*
@@ -41,6 +42,14 @@ Route::prefix('auth')->group(function () {
 Route::prefix('banners')->group(function () {
     Route::get('/', [BannerController::class, 'index']);
     Route::get('/{id}', [BannerController::class, 'show']);
+});
+
+// ✅ Product Routes (Public - bisa diakses tanpa login)
+Route::prefix('products')->group(function () {
+    Route::get('/', [ProductController::class, 'index']);
+    Route::get('/{id}', [ProductController::class, 'show']);
+    Route::get('/type/{type}', [ProductController::class, 'getByType']);
+    Route::get('/provider/{provider}', [ProductController::class, 'getByProvider']);
 });
 
 // ✅ Midtrans Notification (Public - untuk webhook)
@@ -89,6 +98,39 @@ Route::get('test-banners', function () {
     }
 });
 
+// ✅ Test Product Endpoint (Public)
+Route::get('test-products', function () {
+    try {
+        $products = \App\Models\Product::where('is_active', true)
+            ->where('type', 'pln')
+            ->orderBy('selling_price', 'asc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Test product endpoint',
+            'products_count' => $products->count(),
+            'products' => $products->map(function($product) {
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'code' => $product->code,
+                    'type' => $product->type,
+                    'price' => $product->price,
+                    'selling_price' => $product->selling_price,
+                    'is_active' => $product->is_active,
+                    'is_available' => $product->isAvailable(),
+                ];
+            })
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'error' => $e->getMessage()
+        ], 500);
+    }
+});
+
 // ✅ Protected Routes (butuh token Sanctum)
 Route::middleware('auth:sanctum')->group(function () {
     
@@ -110,6 +152,18 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('devices', [DeviceSessionController::class, 'index']);
         Route::post('devices/terminate-all', [DeviceSessionController::class, 'destroyAll']);
         Route::delete('devices/{id}', [DeviceSessionController::class, 'destroy']);
+    });
+
+    // ==================== PRODUCT PROTECTED ROUTES ====================
+    Route::prefix('products')->group(function () {
+        Route::post('/', [ProductController::class, 'store']);
+        Route::put('/{id}', [ProductController::class, 'update']);
+        Route::patch('/{id}', [ProductController::class, 'update']);
+        Route::delete('/{id}', [ProductController::class, 'destroy']);
+        
+        // ✅ Optional: Route untuk admin management
+        Route::get('/admin/all', [ProductController::class, 'getAllProducts']); // Untuk admin lihat semua produk
+        Route::patch('/{id}/toggle-status', [ProductController::class, 'toggleStatus']); // Untuk toggle status aktif/tidak
     });
 
     // ==================== WHATSAPP ROUTES ====================
