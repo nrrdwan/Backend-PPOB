@@ -13,7 +13,8 @@ use App\Http\Controllers\Api\{
     SavedContactController,
     WhatsappController,
     DeviceSessionController,
-    ProductController // ✅ TAMBAHKAN INI
+    ProductController, // ✅ TAMBAHKAN INI
+    AboutUsController // ✅ TAMBAHKAN INI
 };
 
 /*
@@ -50,6 +51,12 @@ Route::prefix('products')->group(function () {
     Route::get('/{id}', [ProductController::class, 'show']);
     Route::get('/type/{type}', [ProductController::class, 'getByType']);
     Route::get('/provider/{provider}', [ProductController::class, 'getByProvider']);
+});
+
+// ✅ About Us Routes (Public - bisa diakses tanpa login)
+Route::prefix('about-us')->group(function () {
+    Route::get('/', [AboutUsController::class, 'index']);
+    Route::get('/{type}', [AboutUsController::class, 'getByType']);
 });
 
 // ✅ Midtrans Notification (Public - untuk webhook)
@@ -120,6 +127,37 @@ Route::get('test-products', function () {
                     'selling_price' => $product->selling_price,
                     'is_active' => $product->is_active,
                     'is_available' => $product->isAvailable(),
+                ];
+            })
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'error' => $e->getMessage()
+        ], 500);
+    }
+});
+
+// ✅ Test About Us Endpoint (Public)
+Route::get('test-about-us', function () {
+    try {
+        $items = \App\Models\AboutUs::active()
+            ->ordered()
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Test About Us endpoint',
+            'items_count' => $items->count(),
+            'items' => $items->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'type' => $item->type,
+                    'title' => $item->title,
+                    'link' => $item->link,
+                    'formatted_link' => $item->formatted_link,
+                    'icon_url' => $item->icon_url,
+                    'is_active' => $item->is_active,
                 ];
             })
         ]);
@@ -245,5 +283,17 @@ Route::middleware('auth:sanctum')->group(function () {
         // ✅ Optional: Route untuk admin management
         Route::get('/admin/all', [BannerController::class, 'getAllBanners']); // Untuk admin lihat semua banner
         Route::patch('/{id}/toggle-status', [BannerController::class, 'toggleStatus']); // Untuk toggle status aktif/tidak
+    });
+
+    // ==================== ABOUT US PROTECTED ROUTES ====================
+    Route::prefix('about-us')->group(function () {
+        Route::post('/', [AboutUsController::class, 'store']);
+        Route::put('/{id}', [AboutUsController::class, 'update']);
+        Route::patch('/{id}', [AboutUsController::class, 'update']);
+        Route::delete('/{id}', [AboutUsController::class, 'destroy']);
+        
+        // ✅ Optional: Route untuk admin management
+        Route::get('/admin/all', [AboutUsController::class, 'getAllItems']); // Untuk admin lihat semua item
+        Route::patch('/{id}/toggle-status', [AboutUsController::class, 'toggleStatus']); // Untuk toggle status aktif/tidak
     });
 });

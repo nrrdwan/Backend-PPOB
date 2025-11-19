@@ -1,5 +1,4 @@
-{{-- This file is used for menu items by any Backpack v6 theme --}}
-<li class="nav-item"><a class="nav-link" href="{{ backpack_url('dashboard') }}"><i class="la la-home nav-icon"></i> {{ trans('backpack::base.dashboard') }}</a></li>
+{{-- Update file resources/views/vendor/backpack/ui/inc/menu_items.blade.php --}}
 
 {{-- Main Menu --}}
 <x-backpack::menu-item title="Manajemen Saldo" icon="la la-wallet" :link="route('admin.wallet.index')" />
@@ -12,9 +11,14 @@
     <x-backpack::menu-dropdown-item title="Transactions" icon="la la-exchange" :link="backpack_url('transaction')" />
 </x-backpack::menu-dropdown>
 
+{{-- Content Management --}}
+<x-backpack::menu-dropdown title="Content Management" icon="la la-file-alt">
+    <x-backpack::menu-dropdown-item title="Banners" icon="la la-image" :link="backpack_url('banner')" />
+    <x-backpack::menu-dropdown-item title="About Us" icon="la la-info-circle" :link="backpack_url('about-us')" />
+</x-backpack::menu-dropdown>
+
 {{-- System Management --}}
 <x-backpack::menu-dropdown title="System" icon="la la-cogs">
     <x-backpack::menu-dropdown-item title="Roles" icon="la la-user-tag" :link="backpack_url('role')" />
     <x-backpack::menu-dropdown-item title="Permissions" icon="la la-key" :link="backpack_url('permission')" />
 </x-backpack::menu-dropdown>
-<x-backpack::menu-item title="Banners" icon="la la-question" :link="backpack_url('banner')" />
