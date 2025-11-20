@@ -3,7 +3,7 @@
 @php
 $widgets['before_content'][] = [
     'type'         => 'jumbotron',
-    'heading'      => 'Selamat Datang di PPOB Merah Putih',
+    'heading'      => 'Selamat Datang di Merah Putih Pay',
     'content'      => 'Dashboard untuk mengelola sistem Payment Point Online Banking Anda.',
     'button_link'  => backpack_url('product'),
     'button_text'  => 'Kelola Produk',

@@ -7,7 +7,7 @@
 @includeWhen(view()->exists('vendor.backpack.ui.inc.header_metas'), 'vendor.backpack.ui.inc.header_metas')
 
 <meta name="csrf-token" content="{{ csrf_token() }}"/> {{-- Encrypted CSRF token for Laravel, in order for Ajax requests to work --}}
-<title>PPOB Merah Putih</title>
+<title>Merah Putih Pay</title>
 
 @yield('before_styles')
 @stack('before_styles')

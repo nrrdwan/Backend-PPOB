@@ -15,7 +15,7 @@
 
 <h2 class="h2 text-center my-4">
     <i class="fas fa-shield-alt text-primary me-2"></i>
-    PPOB Merah Putih
+    Merah Putih Pay
 </h2>
 
 {{-- Administrator Only Notice --}}
