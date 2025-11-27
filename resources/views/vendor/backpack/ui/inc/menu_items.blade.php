@@ -1,6 +1,9 @@
-{{-- Update file resources/views/vendor/backpack/ui/inc/menu_items.blade.php --}}
+{{-- resources/views/vendor/backpack/ui/inc/menu_items.blade.php --}}
 
-{{-- Main Menu --}}
+{{-- Dashboard --}}
+<x-backpack::menu-item title="Dashboard" icon="la la-home" :link="backpack_url('dashboard')" />
+
+{{-- Manajemen Saldo --}}
 <x-backpack::menu-item title="Manajemen Saldo" icon="la la-wallet" :link="route('admin.wallet.index')" />
 
 {{-- Data Management --}}
@@ -15,6 +18,12 @@
 <x-backpack::menu-dropdown title="Content Management" icon="la la-file-alt">
     <x-backpack::menu-dropdown-item title="Banners" icon="la la-image" :link="backpack_url('banner')" />
     <x-backpack::menu-dropdown-item title="About Us" icon="la la-info-circle" :link="backpack_url('about-us')" />
+</x-backpack::menu-dropdown>
+
+{{-- Referral Management --}}
+<x-backpack::menu-dropdown title="Referral Management" icon="la la-users-cog">
+    <x-backpack::menu-dropdown-item title="Statistik Referral" icon="la la-chart-line" :link="route('admin.referral-stats')" />
+    <x-backpack::menu-dropdown-item title="Transaksi Referral" icon="la la-exchange" :link="backpack_url('referral-transaction')" />
 </x-backpack::menu-dropdown>
 
 {{-- System Management --}}

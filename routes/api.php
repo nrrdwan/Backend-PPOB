@@ -13,8 +13,8 @@ use App\Http\Controllers\Api\{
     SavedContactController,
     WhatsappController,
     DeviceSessionController,
-    ProductController, // ✅ TAMBAHKAN INI
-    AboutUsController // ✅ TAMBAHKAN INI
+    ProductController,
+    AboutUsController
 };
 
 /*
@@ -37,6 +37,9 @@ Route::prefix('auth')->group(function () {
     Route::post('forgot-pin', [AuthController::class, 'forgotPin']);
     Route::post('reset-pin', [AuthController::class, 'resetPin']);
     Route::post('check-email', [AuthController::class, 'checkEmail']);
+    
+    // ✅ Verify referral code (public - untuk validasi saat register)
+    Route::post('verify-referral-code', [AuthController::class, 'verifyReferralCode']);
 });
 
 // ✅ Banner Routes (Public - bisa diakses tanpa login)
@@ -185,6 +188,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('update-fcm-token', [AuthController::class, 'updateFcmToken']);
         Route::post('save-fcm-token', [AuthController::class, 'saveFcmToken']);
         Route::post('change-pin', [AuthController::class, 'changePin']);
+        
+        // ✅ Referral Stats (protected - butuh login)
+        Route::get('referral-stats', [AuthController::class, 'getReferralStats']);
         
         // Device Sessions
         Route::get('devices', [DeviceSessionController::class, 'index']);

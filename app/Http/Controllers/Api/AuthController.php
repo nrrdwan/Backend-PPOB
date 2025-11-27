@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\PasswordOtp;
+use App\Models\ReferralTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -12,12 +13,13 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class AuthController extends Controller
 {
     /**
-     * Register a new user
+     * Register a new user with optional referral code
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -32,6 +34,22 @@ class AuthController extends Controller
                 'phone' => 'nullable|string|max:20',
                 'full_name' => 'nullable|string|max:255',
                 'pin' => 'required|digits:6|confirmed',
+                'referral_code' => [
+                    'nullable',
+                    'string',
+                    'size:6',
+                    function ($attribute, $value, $fail) {
+                        if (!empty($value)) {
+                            $exists = \App\Models\User::where('referral_code', $value)
+                                ->where('is_active', true)
+                                ->exists();
+                            
+                            if (!$exists) {
+                                $fail('Kode referral tidak valid atau tidak aktif.');
+                            }
+                        }
+                    },
+                ],
             ]);
 
             if ($validator->fails()) {
@@ -42,57 +60,250 @@ class AuthController extends Controller
                 ], 422);
             }
 
-            $user = User::create([
-                'name' => $request->name,
-                'full_name' => $request->full_name ?? $request->name,
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
-                'phone' => $request->phone,
-                'role' => 'user',
-                'is_active' => true,
-                'email_verified_at' => now(),
-                'kyc_status' => 'unverified',
-                'pin' => Hash::make($request->pin),
-            ]);
+            // Start transaction untuk memastikan atomicity
+            DB::beginTransaction();
 
-            $token = $user->createToken('ppob-mobile-app')->plainTextToken;
-            
+            try {
+                // Create user
+                $user = User::create([
+                    'name' => $request->name,
+                    'full_name' => $request->full_name ?? $request->name,
+                    'email' => $request->email,
+                    'password' => Hash::make($request->password),
+                    'phone' => $request->phone,
+                    'role' => 'user',
+                    'is_active' => true,
+                    'email_verified_at' => now(),
+                    'kyc_status' => 'unverified',
+                    'pin' => Hash::make($request->pin),
+                    'referred_by' => $request->filled('referral_code') ? $request->referral_code : null,
+                ]);
 
-            Log::info('User registered via API', [
-                'user_id' => $user->id,
-                'email' => $user->email,
-                'ip' => $request->ip(),
-                'user_agent' => $request->userAgent()
-            ]);
+                // Process referral if code provided
+                if ($request->filled('referral_code')) {
+                    $this->processReferral($user, $request->referral_code);
+                }
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Registration successful',
-                'data' => [
-                    'user' => [
-                        'id' => $user->id,
-                        'name' => $user->name,
-                        'full_name' => $user->full_name,
-                        'email' => $user->email,
-                        'phone' => $user->phone,
-                        'role' => $user->role,
-                        'kyc_status' => $user->kyc_status,
-                        'is_active' => $user->is_active,
-                        'created_at' => $user->created_at
-                    ],
-                    'token' => $token,
-                    'token_type' => 'Bearer'
-                ]
-            ], 201);
+                $token = $user->createToken('ppob-mobile-app')->plainTextToken;
+
+                DB::commit();
+
+                Log::info('User registered via API', [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                    'referral_code' => $user->referral_code,
+                    'referred_by' => $user->referred_by,
+                    'has_referrer' => $request->filled('referral_code'),
+                    'ip' => $request->ip(),
+                    'user_agent' => $request->userAgent()
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Registration successful',
+                    'data' => [
+                        'user' => [
+                            'id' => $user->id,
+                            'name' => $user->name,
+                            'full_name' => $user->full_name,
+                            'email' => $user->email,
+                            'phone' => $user->phone,
+                            'role' => $user->role,
+                            'kyc_status' => $user->kyc_status,
+                            'is_active' => $user->is_active,
+                            'referral_code' => $user->referral_code,
+                            'created_at' => $user->created_at
+                        ],
+                        'token' => $token,
+                        'token_type' => 'Bearer'
+                    ]
+                ], 201);
+
+            } catch (\Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+
         } catch (\Exception $e) {
             Log::error('Registration error', [
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
                 'ip' => $request->ip()
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Registration failed. Please try again.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Process referral commission
+     */
+    private function processReferral(User $newUser, string $referralCode)
+    {
+        try {
+            // Find referrer
+            $referrer = User::where('referral_code', $referralCode)->first();
+            
+            if (!$referrer) {
+                Log::warning('Referral code not found', ['code' => $referralCode]);
+                return;
+            }
+
+            // Increment referral count
+            $referrer->increment('referral_count');
+            $currentCount = $referrer->referral_count;
+
+            // Calculate commission
+            $commission = ReferralTransaction::calculateCommission($currentCount);
+
+            // Add commission to referrer's balance
+            $referrer->increment('balance', $commission);
+            $referrer->increment('referral_earnings', $commission);
+
+            // Create referral transaction record
+            ReferralTransaction::create([
+                'referrer_id' => $referrer->id,
+                'referred_id' => $newUser->id,
+                'referral_code' => $referralCode,
+                'referral_number' => $currentCount,
+                'commission_amount' => $commission,
+                'status' => 'paid',
+            ]);
+
+            Log::info('Referral commission processed', [
+                'referrer_id' => $referrer->id,
+                'referrer_name' => $referrer->name,
+                'referred_id' => $newUser->id,
+                'referred_name' => $newUser->name,
+                'referral_number' => $currentCount,
+                'commission' => $commission,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error processing referral', [
+                'error' => $e->getMessage(),
+                'referral_code' => $referralCode,
+                'new_user_id' => $newUser->id,
+            ]);
+        }
+    }
+
+    /**
+     * Verify referral code
+     */
+    public function verifyReferralCode(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'referral_code' => 'required|string|size:6',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid referral code format',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $user = User::where('referral_code', $request->referral_code)
+                ->where('is_active', true)
+                ->first();
+
+            if ($user) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Referral code is valid',
+                    'data' => [
+                        'referrer_name' => $user->name,
+                        'referral_code' => $user->referral_code,
+                    ]
+                ], 200);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Referral code not found or inactive',
+                ], 404);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Verify referral code error', [
+                'error' => $e->getMessage(),
+                'code' => $request->referral_code ?? 'unknown',
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to verify referral code',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get referral statistics for current user
+     */
+    public function getReferralStats(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            $referrals = User::where('referred_by', $user->referral_code)
+                ->select('id', 'name', 'email', 'created_at')
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            $transactions = ReferralTransaction::where('referrer_id', $user->id)
+                ->with('referred:id,name,email')
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($transaction) {
+                    return [
+                        'id' => $transaction->id,
+                        'referred_user' => [
+                            'name' => $transaction->referred->name,
+                            'email' => $transaction->referred->email,
+                        ],
+                        'referral_number' => $transaction->referral_number,
+                        'commission_amount' => $transaction->commission_amount,
+                        'formatted_commission' => $transaction->formatted_commission,
+                        'status' => $transaction->status,
+                        'created_at' => $transaction->created_at,
+                    ];
+                });
+
+            // Calculate next commission
+            $nextReferralNumber = $user->referral_count + 1;
+            $nextCommission = ReferralTransaction::calculateCommission($nextReferralNumber);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Referral statistics retrieved successfully',
+                'data' => [
+                    'referral_code' => $user->referral_code,
+                    'total_referrals' => $user->referral_count,
+                    'total_earnings' => $user->referral_earnings,
+                    'formatted_earnings' => $user->formatted_referral_earnings,
+                    'next_commission' => $nextCommission,
+                    'formatted_next_commission' => 'Rp ' . number_format($nextCommission, 0, ',', '.'),
+                    'referrals' => $referrals,
+                    'transactions' => $transactions,
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Get referral stats error', [
+                'error' => $e->getMessage(),
+                'user_id' => $request->user()->id ?? 'unknown',
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve referral statistics',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
@@ -216,7 +427,10 @@ class AuthController extends Controller
                         'role' => $user->role,
                         'kyc_status' => $user->kyc_status,
                         'is_active' => $user->is_active,
-                        'last_login_at' => $user->last_login_at
+                        'last_login_at' => $user->last_login_at,
+                        'referral_code' => $user->referral_code,
+                        'balance' => $user->balance,
+                        'formatted_balance' => $user->formatted_balance,
                     ],
                     'token' => $token,
                     'token_type' => 'Bearer'
@@ -382,7 +596,14 @@ class AuthController extends Controller
                         'is_active' => $user->is_active,
                         'last_login_at' => $user->last_login_at,
                         'created_at' => $user->created_at,
-                        'updated_at' => $user->updated_at
+                        'updated_at' => $user->updated_at,
+                        'referral_code' => $user->referral_code,
+                        'referred_by' => $user->referred_by,
+                        'referral_count' => $user->referral_count,
+                        'referral_earnings' => $user->referral_earnings,
+                        'formatted_referral_earnings' => $user->formatted_referral_earnings,
+                        'balance' => $user->balance,
+                        'formatted_balance' => $user->formatted_balance,
                     ]
                 ]
             ], 200);
@@ -989,6 +1210,7 @@ class AuthController extends Controller
                         'profile_picture_url' => $user->profile_picture,
                         'role' => $user->role,
                         'kyc_status' => $user->kyc_status,
+                        'referral_code' => $user->referral_code,
                     ]
                 ]
             ], 200);

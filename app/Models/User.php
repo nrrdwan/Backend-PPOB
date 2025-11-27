@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Support\Str;
 
 class User extends Authenticatable
 {
@@ -31,6 +32,10 @@ class User extends Authenticatable
         'role',
         'is_active',
         'last_login_at',
+        'referral_code',
+        'referred_by',
+        'referral_count',
+        'referral_earnings',
     ];
 
     /**
@@ -56,7 +61,76 @@ class User extends Authenticatable
             'last_login_at' => 'datetime',
             'is_active' => 'boolean',
             'balance' => 'decimal:2',
+            'referral_count' => 'integer',
+            'referral_earnings' => 'decimal:2',
         ];
+    }
+
+    /**
+     * Boot method untuk auto-generate referral code
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($user) {
+            if (empty($user->referral_code)) {
+                $user->referral_code = self::generateUniqueReferralCode();
+            }
+        });
+    }
+
+    /**
+     * Generate unique 6-character referral code
+     */
+    public static function generateUniqueReferralCode(): string
+    {
+        do {
+            // Generate 6 karakter alfanumerik (huruf besar + angka)
+            $code = strtoupper(Str::random(6));
+            
+            // Pastikan ada kombinasi huruf dan angka
+            if (preg_match('/[A-Z]/', $code) && preg_match('/[0-9]/', $code)) {
+                // Cek apakah kode sudah ada di database
+                $exists = self::where('referral_code', $code)->exists();
+                
+                if (!$exists) {
+                    return $code;
+                }
+            }
+        } while (true);
+    }
+
+    /**
+     * Get users who used this user's referral code
+     */
+    public function referrals()
+    {
+        return $this->hasMany(User::class, 'referred_by', 'referral_code');
+    }
+
+    /**
+     * Get the user who referred this user
+     */
+    public function referrer()
+    {
+        return $this->belongsTo(User::class, 'referred_by', 'referral_code');
+    }
+
+    /**
+     * Get all referral transactions as referrer
+     */
+    public function referralTransactions()
+    {
+        return $this->hasMany(ReferralTransaction::class, 'referrer_id');
+    }
+
+    /**
+     * Get formatted referral earnings
+     */
+    public function getFormattedReferralEarningsAttribute()
+    {
+        return 'Rp ' . number_format($this->referral_earnings, 0, ',', '.');
     }
 
     /**
@@ -159,17 +233,26 @@ class User extends Authenticatable
         return $this->hasPermission('access-admin-panel');
     }
 
+    /**
+     * Check if user has sufficient balance
+     */
     public function hasBalance($amount)
     {
         return $this->balance >= $amount;
     }
 
+    /**
+     * Add balance to user
+     */
     public function addBalance($amount)
     {
         $this->increment('balance', $amount);
         return $this->fresh();
     }
 
+    /**
+     * Deduct balance from user
+     */
     public function deductBalance($amount)
     {
         if (!$this->hasBalance($amount)) {
@@ -180,8 +263,29 @@ class User extends Authenticatable
         return $this->fresh();
     }
 
+    /**
+     * Get formatted balance
+     */
     public function getFormattedBalanceAttribute()
     {
         return number_format($this->balance, 0, ',', '.');
+    }
+
+    /**
+     * Add referral earnings
+     */
+    public function addReferralEarnings($amount)
+    {
+        $this->increment('referral_earnings', $amount);
+        return $this->fresh();
+    }
+
+    /**
+     * Increment referral count
+     */
+    public function incrementReferralCount()
+    {
+        $this->increment('referral_count');
+        return $this->fresh();
     }
 }

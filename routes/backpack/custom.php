@@ -1,4 +1,5 @@
 <?php
+// File: routes/backpack/custom.php
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\LoginController;
@@ -14,17 +15,15 @@ Route::group([
 // --------------------------
 // Custom Backpack Routes
 // --------------------------
-// This route file is loaded automatically by Backpack\CRUD.
-// Routes you generate using Backpack\Generators will be placed here.
 Route::group([
     'prefix' => config('backpack.base.route_prefix', 'admin'),
     'middleware' => [
         'web',
         'auth:backpack',
-        'check_if_admin', // pastikan middleware ini sudah terdaftar di Kernel
+        'check_if_admin',
     ],
     'namespace' => 'App\Http\Controllers\Admin',
-], function () { // custom admin routes
+], function () {
     // Dashboard route
     Route::get('dashboard', 'AdminController@dashboard')->name('backpack.dashboard');
     Route::get('/', 'AdminController@redirect')->name('backpack');
@@ -32,6 +31,9 @@ Route::group([
     // Wallet Management Routes
     Route::get('wallet', 'WalletManagementController@index')->name('admin.wallet.index');
     Route::post('wallet/adjust-balance', 'WalletManagementController@adjustBalance')->name('admin.wallet.adjust-balance');
+    
+    // ✅ TAMBAHKAN ROUTE REFERRAL STATS DI SINI
+    Route::get('referral-stats', 'ReferralStatsController@index')->name('admin.referral-stats');
     
     // CRUD routes
     Route::crud('user', 'UserCrudController');
@@ -42,7 +44,10 @@ Route::group([
     Route::crud('product-commission', 'ProductCommissionCrudController');
     Route::crud('banner', 'BannerCrudController');
     Route::crud('about-us', 'AboutUsCrudController');
-}); // this should be the absolute last line of this file
+
+    // Referral Transactions CRUD
+    Route::crud('referral-transaction', 'ReferralTransactionCrudController');
+});
 
 /**
  * DO NOT ADD ANYTHING HERE.
