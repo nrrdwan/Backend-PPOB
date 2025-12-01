@@ -6,9 +6,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('saved_contacts', function (Blueprint $table) {
@@ -16,13 +13,15 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->string('phone_number');
             $table->string('provider');
+            $table->string('name')->nullable(); // ✅ Tambahkan kolom name
+            $table->boolean('is_favorite')->default(false); // ✅ Tambahkan kolom is_favorite
             $table->timestamps();
+            
+            // ✅ Index untuk performa
+            $table->index(['user_id', 'phone_number', 'provider']);
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('saved_contacts');

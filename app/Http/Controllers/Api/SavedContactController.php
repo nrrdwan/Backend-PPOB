@@ -82,6 +82,7 @@ class SavedContactController extends Controller
     {
         try {
             $contacts = SavedContact::where('user_id', Auth::id())
+                ->orderBy('is_favorite', 'desc')
                 ->orderBy('created_at', 'desc')
                 ->get();
 
@@ -108,7 +109,7 @@ class SavedContactController extends Controller
     /**
      * 📌 HAPUS KONTAK
      */
-    public function destroy(Request $request, $id)
+    public function destroy($id)
     {
         try {
             $contact = SavedContact::where('user_id', Auth::id())
@@ -150,7 +151,7 @@ class SavedContactController extends Controller
     }
 
     /**
-     * 📌 UPDATE KONTAK (OPSIONAL)
+     * 📌 UPDATE KONTAK
      */
     public function update(Request $request, $id)
     {
@@ -159,6 +160,7 @@ class SavedContactController extends Controller
                 'phone_number' => 'sometimes|required|string',
                 'provider' => 'sometimes|required|string',
                 'name' => 'nullable|string',
+                'is_favorite' => 'sometimes|boolean',
             ]);
 
             $contact = SavedContact::where('user_id', Auth::id())
@@ -173,6 +175,11 @@ class SavedContactController extends Controller
             }
 
             $contact->update($validated);
+
+            Log::info('Kontak berhasil diupdate', [
+                'user_id' => Auth::id(),
+                'contact_id' => $id,
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -196,6 +203,55 @@ class SavedContactController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengupdate kontak',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    /**
+     * 📌 TOGGLE FAVORITE STATUS
+     */
+    public function toggleFavorite($id)
+    {
+        try {
+            $contact = SavedContact::where('user_id', Auth::id())
+                ->where('id', $id)
+                ->first();
+
+            if (!$contact) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kontak tidak ditemukan',
+                ], 404);
+            }
+
+            $contact->is_favorite = !$contact->is_favorite;
+            $contact->save();
+
+            Log::info('Status favorit kontak diubah', [
+                'user_id' => Auth::id(),
+                'contact_id' => $id,
+                'is_favorite' => $contact->is_favorite,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => $contact->is_favorite 
+                    ? 'Kontak ditambahkan ke favorit' 
+                    : 'Kontak dihapus dari favorit',
+                'data' => $contact,
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Error saat toggle favorite', [
+                'user_id' => Auth::id(),
+                'contact_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengubah status favorit',
                 'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }

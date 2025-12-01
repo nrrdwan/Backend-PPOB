@@ -220,7 +220,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('contacts')->group(function () {
         Route::get('/', [SavedContactController::class, 'index']);
         Route::post('/', [SavedContactController::class, 'store']);
+        Route::put('/contacts/{id}', [SavedContactController::class, 'update']);
         Route::delete('/{id}', [SavedContactController::class, 'destroy']);
+        Route::post('/contacts/{id}/toggle-favorite', [SavedContactController::class, 'toggleFavorite']);
     });
 
     // ==================== USER ROUTES ====================

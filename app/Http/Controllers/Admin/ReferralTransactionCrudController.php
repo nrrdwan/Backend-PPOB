@@ -103,36 +103,12 @@ class ReferralTransactionCrudController extends CrudController
             'type' => 'datetime',
         ]);
 
-        // Filters
-        CRUD::addFilter([
-            'name' => 'status',
-            'type' => 'select2',
-            'label' => 'Status'
-        ], [
-            'paid' => 'Paid',
-            'pending' => 'Pending',
-            'cancelled' => 'Cancelled',
-        ], function($value) {
-            CRUD::addClause('where', 'status', $value);
-        });
-
-        CRUD::addFilter([
-            'type' => 'date_range',
-            'name' => 'created_at',
-            'label' => 'Date Range'
-        ],
-        false,
-        function($value) {
-            $dates = json_decode($value);
-            CRUD::addClause('where', 'created_at', '>=', $dates->from);
-            CRUD::addClause('where', 'created_at', '<=', $dates->to . ' 23:59:59');
-        });
-
         // Buttons
         CRUD::removeButton('create');
         CRUD::removeButton('update');
         CRUD::removeButton('delete');
-        CRUD::addButton('line', 'view_referrer', 'view', 'beginning');
+        // Baris ini DIHAPUS karena button view_referrer tidak ada
+        // CRUD::addButton('line', 'view_referrer', 'view', 'beginning');
     }
 
     /**
