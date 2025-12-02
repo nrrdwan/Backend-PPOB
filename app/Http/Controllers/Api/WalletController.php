@@ -480,36 +480,91 @@ class WalletController extends Controller
 
             DB::beginTransaction();
 
+            // Kurangi saldo pengirim
             $sender->decrement('balance', $amount);
 
+            // Tambah saldo penerima
             $recipient->increment('balance', $amount);
 
+            // Mark QR as used
             $record->update(['used' => true, 'used_at' => now()]);
 
-            Transaction::create([
-                'from_user_id' => $sender->id,
-                'to_user_id' => $recipient->id,
-                'amount' => $amount,
+            // Generate transaction ID
+            $transactionId = 'TRX' . now()->format('YmdHis') . strtoupper(Str::random(6));
+            
+            // ✅ Buat transaksi untuk pengirim (PAKAI from_user_id dan to_user_id)
+            $transaction = Transaction::create([
+                'user_id' => $sender->id,
+                'transaction_id' => $transactionId,
+                'from_user_id' => $sender->id, // ✅ ISI INI
+                'to_user_id' => $recipient->id, // ✅ ISI INI
                 'type' => 'qr_transfer',
+                'amount' => $amount,
+                'admin_fee' => 0,
+                'total_amount' => $amount,
                 'status' => 'success',
-                'note' => 'Transfer via QR',
+                'notes' => "Transfer saldo ke {$recipient->name} via QR",
+                'metadata' => [
+                    'from_user_id' => $sender->id,
+                    'from_name' => $sender->name,
+                    'from_phone' => $sender->phone,
+                    'to_user_id' => $recipient->id,
+                    'to_name' => $recipient->name,
+                    'to_phone' => $recipient->phone,
+                    'qr_token' => $qrToken,
+                    'transfer_type' => 'qr_transfer',
+                ],
+            ]);
+
+            // ✅ Buat transaksi untuk penerima
+            Transaction::create([
+                'user_id' => $recipient->id,
+                'transaction_id' => $transactionId . '-RCV',
+                'from_user_id' => $sender->id, // ✅ ISI INI
+                'to_user_id' => $recipient->id, // ✅ ISI INI
+                'type' => 'qr_receive',
+                'amount' => $amount,
+                'admin_fee' => 0,
+                'total_amount' => $amount,
+                'status' => 'success',
+                'notes' => "Terima transfer saldo dari {$sender->name} via QR",
+                'metadata' => [
+                    'from_user_id' => $sender->id,
+                    'from_name' => $sender->name,
+                    'from_phone' => $sender->phone,
+                    'to_user_id' => $recipient->id,
+                    'to_name' => $recipient->name,
+                    'to_phone' => $recipient->phone,
+                    'qr_token' => $qrToken,
+                    'transfer_type' => 'qr_receive',
+                ],
             ]);
 
             DB::commit();
+
+            \Log::info('✅ QR TRANSFER SUCCESS', [
+                'transaction_id' => $transactionId,
+                'from' => $sender->name,
+                'to' => $recipient->name,
+                'amount' => $amount,
+            ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Transfer berhasil',
                 'data' => [
+                    'reference' => $transactionId,
                     'from' => $sender->name,
                     'to' => $recipient->name,
                     'amount' => $amount,
-                    'current_balance' => $sender->balance,
+                    'current_balance' => $sender->fresh()->balance,
+                    'transaction_id' => $transaction->id,
                 ],
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Transfer via QR error: '.$e->getMessage());
+            \Log::error('❌ Transfer via QR error: '.$e->getMessage());
+            \Log::error('Stack trace: '.$e->getTraceAsString());
 
             return response()->json([
                 'success' => false,
